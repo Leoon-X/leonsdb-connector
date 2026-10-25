@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Leoon-X
+#
+# Weekly dependency update pull requests. Each one runs through CI,
+# including the license checks.
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: /
+    schedule: { interval: weekly }
+    ignore:
+      # Paper 26.x is compiled for Java 25. The plugin deliberately builds
+      # against the 1.21 API at Java 21 so one jar runs on 1.21.x and 26.x.
+      - dependency-name: io.papermc.paper:paper-api
+        versions: [">= 26"]
+    groups:
+      java-deps: { patterns: ["*"] }
+  - package-ecosystem: gomod
+    directory: /proto
+    schedule: { interval: weekly }
+    groups:
+      go-deps: { patterns: ["*"] }
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }

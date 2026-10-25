@@ -50,6 +50,28 @@ service DataService {
   // At most 5000 records per call.
   rpc Import(ImportRequest) returns (ImportResponse);
 
+  // A bulk import loads a new, empty collection much faster than Import: the
+  // records are collected while they arrive and stored all at once when the
+  // import is committed, which is all or nothing. Until it ends no other
+  // write may touch the collection. Records are checked as Import checks
+  // them; a record imported twice keeps its later version. The change feed
+  // gets one event with missed set. Players online fail the commit. It needs
+  // a token that may write every field of the collection; only that token
+  // may continue the import, and an import left alone for 10 minutes is
+  // given up.
+  rpc BeginBulkImport(BeginBulkImportRequest) returns (BeginBulkImportResponse);
+
+  // BulkImport adds records to a bulk import: at most 5000 per call. Calls
+  // may run at the same time.
+  rpc BulkImport(BulkImportRequest) returns (BulkImportResponse);
+
+  // CommitBulkImport stores the records of a bulk import, durably when it
+  // returns, and ends it.
+  rpc CommitBulkImport(CommitBulkImportRequest) returns (CommitBulkImportResponse);
+
+  // AbortBulkImport ends a bulk import without storing anything.
+  rpc AbortBulkImport(AbortBulkImportRequest) returns (AbortBulkImportResponse);
+
   // Delete removes one record.
   rpc Delete(DeleteRequest) returns (DeleteResponse);
 
@@ -323,6 +345,42 @@ message ImportResponse {
   // One per record, in order.
   repeated ApplyOutcome results = 1;
 }
+
+message BeginBulkImportRequest {
+  string namespace = 1;
+  string collection = 2;
+}
+
+message BeginBulkImportResponse {
+  string import_id = 1;
+}
+
+message BulkImportRequest {
+  string import_id = 1;
+  // Of the collection the import is for.
+  repeated ImportRecord records = 2;
+}
+
+message BulkImportResponse {
+  // One per record, in order. A record that succeeded is stored when the
+  // import is committed.
+  repeated ApplyOutcome results = 1;
+}
+
+message CommitBulkImportRequest {
+  string import_id = 1;
+}
+
+message CommitBulkImportResponse {
+  // How many records were stored.
+  uint64 imported = 1;
+}
+
+message AbortBulkImportRequest {
+  string import_id = 1;
+}
+
+message AbortBulkImportResponse {}
 
 message ApplyManyRequest {
   repeated ApplyRequest writes = 1;

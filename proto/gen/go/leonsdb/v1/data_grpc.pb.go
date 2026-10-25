@@ -28,6 +28,10 @@ const (
 	DataService_Apply_FullMethodName            = "/leonsdb.v1.DataService/Apply"
 	DataService_ApplyMany_FullMethodName        = "/leonsdb.v1.DataService/ApplyMany"
 	DataService_Import_FullMethodName           = "/leonsdb.v1.DataService/Import"
+	DataService_BeginBulkImport_FullMethodName  = "/leonsdb.v1.DataService/BeginBulkImport"
+	DataService_BulkImport_FullMethodName       = "/leonsdb.v1.DataService/BulkImport"
+	DataService_CommitBulkImport_FullMethodName = "/leonsdb.v1.DataService/CommitBulkImport"
+	DataService_AbortBulkImport_FullMethodName  = "/leonsdb.v1.DataService/AbortBulkImport"
 	DataService_Delete_FullMethodName           = "/leonsdb.v1.DataService/Delete"
 	DataService_Scan_FullMethodName             = "/leonsdb.v1.DataService/Scan"
 	DataService_Top_FullMethodName              = "/leonsdb.v1.DataService/Top"
@@ -74,6 +78,24 @@ type DataServiceClient interface {
 	// event with missed set instead of a change per record, so readers re-read.
 	// At most 5000 records per call.
 	Import(ctx context.Context, in *ImportRequest, opts ...grpc.CallOption) (*ImportResponse, error)
+	// A bulk import loads a new, empty collection much faster than Import: the
+	// records are collected while they arrive and stored all at once when the
+	// import is committed, which is all or nothing. Until it ends no other
+	// write may touch the collection. Records are checked as Import checks
+	// them; a record imported twice keeps its later version. The change feed
+	// gets one event with missed set. Players online fail the commit. It needs
+	// a token that may write every field of the collection; only that token
+	// may continue the import, and an import left alone for 10 minutes is
+	// given up.
+	BeginBulkImport(ctx context.Context, in *BeginBulkImportRequest, opts ...grpc.CallOption) (*BeginBulkImportResponse, error)
+	// BulkImport adds records to a bulk import: at most 5000 per call. Calls
+	// may run at the same time.
+	BulkImport(ctx context.Context, in *BulkImportRequest, opts ...grpc.CallOption) (*BulkImportResponse, error)
+	// CommitBulkImport stores the records of a bulk import, durably when it
+	// returns, and ends it.
+	CommitBulkImport(ctx context.Context, in *CommitBulkImportRequest, opts ...grpc.CallOption) (*CommitBulkImportResponse, error)
+	// AbortBulkImport ends a bulk import without storing anything.
+	AbortBulkImport(ctx context.Context, in *AbortBulkImportRequest, opts ...grpc.CallOption) (*AbortBulkImportResponse, error)
 	// Delete removes one record.
 	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
 	// Scan lists the records of a collection in key order, one page at a
@@ -167,6 +189,46 @@ func (c *dataServiceClient) Import(ctx context.Context, in *ImportRequest, opts 
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ImportResponse)
 	err := c.cc.Invoke(ctx, DataService_Import_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *dataServiceClient) BeginBulkImport(ctx context.Context, in *BeginBulkImportRequest, opts ...grpc.CallOption) (*BeginBulkImportResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BeginBulkImportResponse)
+	err := c.cc.Invoke(ctx, DataService_BeginBulkImport_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *dataServiceClient) BulkImport(ctx context.Context, in *BulkImportRequest, opts ...grpc.CallOption) (*BulkImportResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BulkImportResponse)
+	err := c.cc.Invoke(ctx, DataService_BulkImport_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *dataServiceClient) CommitBulkImport(ctx context.Context, in *CommitBulkImportRequest, opts ...grpc.CallOption) (*CommitBulkImportResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommitBulkImportResponse)
+	err := c.cc.Invoke(ctx, DataService_CommitBulkImport_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *dataServiceClient) AbortBulkImport(ctx context.Context, in *AbortBulkImportRequest, opts ...grpc.CallOption) (*AbortBulkImportResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AbortBulkImportResponse)
+	err := c.cc.Invoke(ctx, DataService_AbortBulkImport_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -280,6 +342,24 @@ type DataServiceServer interface {
 	// event with missed set instead of a change per record, so readers re-read.
 	// At most 5000 records per call.
 	Import(context.Context, *ImportRequest) (*ImportResponse, error)
+	// A bulk import loads a new, empty collection much faster than Import: the
+	// records are collected while they arrive and stored all at once when the
+	// import is committed, which is all or nothing. Until it ends no other
+	// write may touch the collection. Records are checked as Import checks
+	// them; a record imported twice keeps its later version. The change feed
+	// gets one event with missed set. Players online fail the commit. It needs
+	// a token that may write every field of the collection; only that token
+	// may continue the import, and an import left alone for 10 minutes is
+	// given up.
+	BeginBulkImport(context.Context, *BeginBulkImportRequest) (*BeginBulkImportResponse, error)
+	// BulkImport adds records to a bulk import: at most 5000 per call. Calls
+	// may run at the same time.
+	BulkImport(context.Context, *BulkImportRequest) (*BulkImportResponse, error)
+	// CommitBulkImport stores the records of a bulk import, durably when it
+	// returns, and ends it.
+	CommitBulkImport(context.Context, *CommitBulkImportRequest) (*CommitBulkImportResponse, error)
+	// AbortBulkImport ends a bulk import without storing anything.
+	AbortBulkImport(context.Context, *AbortBulkImportRequest) (*AbortBulkImportResponse, error)
 	// Delete removes one record.
 	Delete(context.Context, *DeleteRequest) (*DeleteResponse, error)
 	// Scan lists the records of a collection in key order, one page at a
@@ -336,6 +416,18 @@ func (UnimplementedDataServiceServer) ApplyMany(context.Context, *ApplyManyReque
 }
 func (UnimplementedDataServiceServer) Import(context.Context, *ImportRequest) (*ImportResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Import not implemented")
+}
+func (UnimplementedDataServiceServer) BeginBulkImport(context.Context, *BeginBulkImportRequest) (*BeginBulkImportResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BeginBulkImport not implemented")
+}
+func (UnimplementedDataServiceServer) BulkImport(context.Context, *BulkImportRequest) (*BulkImportResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BulkImport not implemented")
+}
+func (UnimplementedDataServiceServer) CommitBulkImport(context.Context, *CommitBulkImportRequest) (*CommitBulkImportResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CommitBulkImport not implemented")
+}
+func (UnimplementedDataServiceServer) AbortBulkImport(context.Context, *AbortBulkImportRequest) (*AbortBulkImportResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AbortBulkImport not implemented")
 }
 func (UnimplementedDataServiceServer) Delete(context.Context, *DeleteRequest) (*DeleteResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Delete not implemented")
@@ -484,6 +576,78 @@ func _DataService_Import_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DataService_BeginBulkImport_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BeginBulkImportRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DataServiceServer).BeginBulkImport(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DataService_BeginBulkImport_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DataServiceServer).BeginBulkImport(ctx, req.(*BeginBulkImportRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DataService_BulkImport_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BulkImportRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DataServiceServer).BulkImport(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DataService_BulkImport_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DataServiceServer).BulkImport(ctx, req.(*BulkImportRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DataService_CommitBulkImport_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CommitBulkImportRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DataServiceServer).CommitBulkImport(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DataService_CommitBulkImport_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DataServiceServer).CommitBulkImport(ctx, req.(*CommitBulkImportRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DataService_AbortBulkImport_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AbortBulkImportRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DataServiceServer).AbortBulkImport(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DataService_AbortBulkImport_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DataServiceServer).AbortBulkImport(ctx, req.(*AbortBulkImportRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _DataService_Delete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeleteRequest)
 	if err := dec(in); err != nil {
@@ -615,6 +779,22 @@ var DataService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Import",
 			Handler:    _DataService_Import_Handler,
+		},
+		{
+			MethodName: "BeginBulkImport",
+			Handler:    _DataService_BeginBulkImport_Handler,
+		},
+		{
+			MethodName: "BulkImport",
+			Handler:    _DataService_BulkImport_Handler,
+		},
+		{
+			MethodName: "CommitBulkImport",
+			Handler:    _DataService_CommitBulkImport_Handler,
+		},
+		{
+			MethodName: "AbortBulkImport",
+			Handler:    _DataService_AbortBulkImport_Handler,
 		},
 		{
 			MethodName: "Delete",

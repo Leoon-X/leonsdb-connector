@@ -1931,6 +1931,370 @@ func (x *ImportResponse) GetResults() []*ApplyOutcome {
 	return nil
 }
 
+type BeginBulkImportRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Namespace     string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	Collection    string                 `protobuf:"bytes,2,opt,name=collection,proto3" json:"collection,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BeginBulkImportRequest) Reset() {
+	*x = BeginBulkImportRequest{}
+	mi := &file_leonsdb_v1_data_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BeginBulkImportRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BeginBulkImportRequest) ProtoMessage() {}
+
+func (x *BeginBulkImportRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_leonsdb_v1_data_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BeginBulkImportRequest.ProtoReflect.Descriptor instead.
+func (*BeginBulkImportRequest) Descriptor() ([]byte, []int) {
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *BeginBulkImportRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *BeginBulkImportRequest) GetCollection() string {
+	if x != nil {
+		return x.Collection
+	}
+	return ""
+}
+
+type BeginBulkImportResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ImportId      string                 `protobuf:"bytes,1,opt,name=import_id,json=importId,proto3" json:"import_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BeginBulkImportResponse) Reset() {
+	*x = BeginBulkImportResponse{}
+	mi := &file_leonsdb_v1_data_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BeginBulkImportResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BeginBulkImportResponse) ProtoMessage() {}
+
+func (x *BeginBulkImportResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_leonsdb_v1_data_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BeginBulkImportResponse.ProtoReflect.Descriptor instead.
+func (*BeginBulkImportResponse) Descriptor() ([]byte, []int) {
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *BeginBulkImportResponse) GetImportId() string {
+	if x != nil {
+		return x.ImportId
+	}
+	return ""
+}
+
+type BulkImportRequest struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	ImportId string                 `protobuf:"bytes,1,opt,name=import_id,json=importId,proto3" json:"import_id,omitempty"`
+	// Of the collection the import is for.
+	Records       []*ImportRecord `protobuf:"bytes,2,rep,name=records,proto3" json:"records,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BulkImportRequest) Reset() {
+	*x = BulkImportRequest{}
+	mi := &file_leonsdb_v1_data_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BulkImportRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BulkImportRequest) ProtoMessage() {}
+
+func (x *BulkImportRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_leonsdb_v1_data_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BulkImportRequest.ProtoReflect.Descriptor instead.
+func (*BulkImportRequest) Descriptor() ([]byte, []int) {
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *BulkImportRequest) GetImportId() string {
+	if x != nil {
+		return x.ImportId
+	}
+	return ""
+}
+
+func (x *BulkImportRequest) GetRecords() []*ImportRecord {
+	if x != nil {
+		return x.Records
+	}
+	return nil
+}
+
+type BulkImportResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// One per record, in order. A record that succeeded is stored when the
+	// import is committed.
+	Results       []*ApplyOutcome `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BulkImportResponse) Reset() {
+	*x = BulkImportResponse{}
+	mi := &file_leonsdb_v1_data_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BulkImportResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BulkImportResponse) ProtoMessage() {}
+
+func (x *BulkImportResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_leonsdb_v1_data_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BulkImportResponse.ProtoReflect.Descriptor instead.
+func (*BulkImportResponse) Descriptor() ([]byte, []int) {
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *BulkImportResponse) GetResults() []*ApplyOutcome {
+	if x != nil {
+		return x.Results
+	}
+	return nil
+}
+
+type CommitBulkImportRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ImportId      string                 `protobuf:"bytes,1,opt,name=import_id,json=importId,proto3" json:"import_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CommitBulkImportRequest) Reset() {
+	*x = CommitBulkImportRequest{}
+	mi := &file_leonsdb_v1_data_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CommitBulkImportRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CommitBulkImportRequest) ProtoMessage() {}
+
+func (x *CommitBulkImportRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_leonsdb_v1_data_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CommitBulkImportRequest.ProtoReflect.Descriptor instead.
+func (*CommitBulkImportRequest) Descriptor() ([]byte, []int) {
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *CommitBulkImportRequest) GetImportId() string {
+	if x != nil {
+		return x.ImportId
+	}
+	return ""
+}
+
+type CommitBulkImportResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// How many records were stored.
+	Imported      uint64 `protobuf:"varint,1,opt,name=imported,proto3" json:"imported,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CommitBulkImportResponse) Reset() {
+	*x = CommitBulkImportResponse{}
+	mi := &file_leonsdb_v1_data_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CommitBulkImportResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CommitBulkImportResponse) ProtoMessage() {}
+
+func (x *CommitBulkImportResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_leonsdb_v1_data_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CommitBulkImportResponse.ProtoReflect.Descriptor instead.
+func (*CommitBulkImportResponse) Descriptor() ([]byte, []int) {
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *CommitBulkImportResponse) GetImported() uint64 {
+	if x != nil {
+		return x.Imported
+	}
+	return 0
+}
+
+type AbortBulkImportRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ImportId      string                 `protobuf:"bytes,1,opt,name=import_id,json=importId,proto3" json:"import_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AbortBulkImportRequest) Reset() {
+	*x = AbortBulkImportRequest{}
+	mi := &file_leonsdb_v1_data_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AbortBulkImportRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AbortBulkImportRequest) ProtoMessage() {}
+
+func (x *AbortBulkImportRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_leonsdb_v1_data_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AbortBulkImportRequest.ProtoReflect.Descriptor instead.
+func (*AbortBulkImportRequest) Descriptor() ([]byte, []int) {
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *AbortBulkImportRequest) GetImportId() string {
+	if x != nil {
+		return x.ImportId
+	}
+	return ""
+}
+
+type AbortBulkImportResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AbortBulkImportResponse) Reset() {
+	*x = AbortBulkImportResponse{}
+	mi := &file_leonsdb_v1_data_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AbortBulkImportResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AbortBulkImportResponse) ProtoMessage() {}
+
+func (x *AbortBulkImportResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_leonsdb_v1_data_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AbortBulkImportResponse.ProtoReflect.Descriptor instead.
+func (*AbortBulkImportResponse) Descriptor() ([]byte, []int) {
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{31}
+}
+
 type ApplyManyRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Writes        []*ApplyRequest        `protobuf:"bytes,1,rep,name=writes,proto3" json:"writes,omitempty"`
@@ -1940,7 +2304,7 @@ type ApplyManyRequest struct {
 
 func (x *ApplyManyRequest) Reset() {
 	*x = ApplyManyRequest{}
-	mi := &file_leonsdb_v1_data_proto_msgTypes[24]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1952,7 +2316,7 @@ func (x *ApplyManyRequest) String() string {
 func (*ApplyManyRequest) ProtoMessage() {}
 
 func (x *ApplyManyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_data_proto_msgTypes[24]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1965,7 +2329,7 @@ func (x *ApplyManyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyManyRequest.ProtoReflect.Descriptor instead.
 func (*ApplyManyRequest) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{24}
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *ApplyManyRequest) GetWrites() []*ApplyRequest {
@@ -1985,7 +2349,7 @@ type ApplyManyResponse struct {
 
 func (x *ApplyManyResponse) Reset() {
 	*x = ApplyManyResponse{}
-	mi := &file_leonsdb_v1_data_proto_msgTypes[25]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1997,7 +2361,7 @@ func (x *ApplyManyResponse) String() string {
 func (*ApplyManyResponse) ProtoMessage() {}
 
 func (x *ApplyManyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_data_proto_msgTypes[25]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2010,7 +2374,7 @@ func (x *ApplyManyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyManyResponse.ProtoReflect.Descriptor instead.
 func (*ApplyManyResponse) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{25}
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ApplyManyResponse) GetResults() []*ApplyOutcome {
@@ -2033,7 +2397,7 @@ type ApplyOutcome struct {
 
 func (x *ApplyOutcome) Reset() {
 	*x = ApplyOutcome{}
-	mi := &file_leonsdb_v1_data_proto_msgTypes[26]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2045,7 +2409,7 @@ func (x *ApplyOutcome) String() string {
 func (*ApplyOutcome) ProtoMessage() {}
 
 func (x *ApplyOutcome) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_data_proto_msgTypes[26]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2058,7 +2422,7 @@ func (x *ApplyOutcome) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyOutcome.ProtoReflect.Descriptor instead.
 func (*ApplyOutcome) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{26}
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ApplyOutcome) GetResponse() *ApplyResponse {
@@ -2090,7 +2454,7 @@ type WriteError struct {
 
 func (x *WriteError) Reset() {
 	*x = WriteError{}
-	mi := &file_leonsdb_v1_data_proto_msgTypes[27]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2102,7 +2466,7 @@ func (x *WriteError) String() string {
 func (*WriteError) ProtoMessage() {}
 
 func (x *WriteError) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_data_proto_msgTypes[27]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2115,7 +2479,7 @@ func (x *WriteError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WriteError.ProtoReflect.Descriptor instead.
 func (*WriteError) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{27}
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *WriteError) GetCode() uint32 {
@@ -2157,7 +2521,7 @@ type DeleteRequest struct {
 
 func (x *DeleteRequest) Reset() {
 	*x = DeleteRequest{}
-	mi := &file_leonsdb_v1_data_proto_msgTypes[28]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2169,7 +2533,7 @@ func (x *DeleteRequest) String() string {
 func (*DeleteRequest) ProtoMessage() {}
 
 func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_data_proto_msgTypes[28]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2182,7 +2546,7 @@ func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRequest) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{28}
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *DeleteRequest) GetRef() *RecordRef {
@@ -2216,7 +2580,7 @@ type DeleteResponse struct {
 
 func (x *DeleteResponse) Reset() {
 	*x = DeleteResponse{}
-	mi := &file_leonsdb_v1_data_proto_msgTypes[29]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2228,7 +2592,7 @@ func (x *DeleteResponse) String() string {
 func (*DeleteResponse) ProtoMessage() {}
 
 func (x *DeleteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_data_proto_msgTypes[29]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2241,7 +2605,7 @@ func (x *DeleteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteResponse.ProtoReflect.Descriptor instead.
 func (*DeleteResponse) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{29}
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *DeleteResponse) GetExisted() bool {
@@ -2265,7 +2629,7 @@ type ScanRequest struct {
 
 func (x *ScanRequest) Reset() {
 	*x = ScanRequest{}
-	mi := &file_leonsdb_v1_data_proto_msgTypes[30]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2277,7 +2641,7 @@ func (x *ScanRequest) String() string {
 func (*ScanRequest) ProtoMessage() {}
 
 func (x *ScanRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_data_proto_msgTypes[30]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2290,7 +2654,7 @@ func (x *ScanRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScanRequest.ProtoReflect.Descriptor instead.
 func (*ScanRequest) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{30}
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ScanRequest) GetNamespace() string {
@@ -2332,7 +2696,7 @@ type ScanResponse struct {
 
 func (x *ScanResponse) Reset() {
 	*x = ScanResponse{}
-	mi := &file_leonsdb_v1_data_proto_msgTypes[31]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2344,7 +2708,7 @@ func (x *ScanResponse) String() string {
 func (*ScanResponse) ProtoMessage() {}
 
 func (x *ScanResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_data_proto_msgTypes[31]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2357,7 +2721,7 @@ func (x *ScanResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScanResponse.ProtoReflect.Descriptor instead.
 func (*ScanResponse) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{31}
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *ScanResponse) GetRecords() []*Record {
@@ -2397,7 +2761,7 @@ type TopRequest struct {
 
 func (x *TopRequest) Reset() {
 	*x = TopRequest{}
-	mi := &file_leonsdb_v1_data_proto_msgTypes[32]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2409,7 +2773,7 @@ func (x *TopRequest) String() string {
 func (*TopRequest) ProtoMessage() {}
 
 func (x *TopRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_data_proto_msgTypes[32]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2422,7 +2786,7 @@ func (x *TopRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TopRequest.ProtoReflect.Descriptor instead.
 func (*TopRequest) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{32}
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *TopRequest) GetNamespace() string {
@@ -2495,7 +2859,7 @@ type RankedEntry struct {
 
 func (x *RankedEntry) Reset() {
 	*x = RankedEntry{}
-	mi := &file_leonsdb_v1_data_proto_msgTypes[33]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2507,7 +2871,7 @@ func (x *RankedEntry) String() string {
 func (*RankedEntry) ProtoMessage() {}
 
 func (x *RankedEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_data_proto_msgTypes[33]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2520,7 +2884,7 @@ func (x *RankedEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RankedEntry.ProtoReflect.Descriptor instead.
 func (*RankedEntry) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{33}
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *RankedEntry) GetRef() *RecordRef {
@@ -2563,7 +2927,7 @@ type TopResponse struct {
 
 func (x *TopResponse) Reset() {
 	*x = TopResponse{}
-	mi := &file_leonsdb_v1_data_proto_msgTypes[34]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2575,7 +2939,7 @@ func (x *TopResponse) String() string {
 func (*TopResponse) ProtoMessage() {}
 
 func (x *TopResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_data_proto_msgTypes[34]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2588,7 +2952,7 @@ func (x *TopResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TopResponse.ProtoReflect.Descriptor instead.
 func (*TopResponse) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{34}
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *TopResponse) GetEntries() []*RankedEntry {
@@ -2616,7 +2980,7 @@ type RankRequest struct {
 
 func (x *RankRequest) Reset() {
 	*x = RankRequest{}
-	mi := &file_leonsdb_v1_data_proto_msgTypes[35]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2628,7 +2992,7 @@ func (x *RankRequest) String() string {
 func (*RankRequest) ProtoMessage() {}
 
 func (x *RankRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_data_proto_msgTypes[35]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2641,7 +3005,7 @@ func (x *RankRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RankRequest.ProtoReflect.Descriptor instead.
 func (*RankRequest) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{35}
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *RankRequest) GetRef() *RecordRef {
@@ -2678,7 +3042,7 @@ type RankResponse struct {
 
 func (x *RankResponse) Reset() {
 	*x = RankResponse{}
-	mi := &file_leonsdb_v1_data_proto_msgTypes[36]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2690,7 +3054,7 @@ func (x *RankResponse) String() string {
 func (*RankResponse) ProtoMessage() {}
 
 func (x *RankResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_data_proto_msgTypes[36]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2703,7 +3067,7 @@ func (x *RankResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RankResponse.ProtoReflect.Descriptor instead.
 func (*RankResponse) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{36}
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *RankResponse) GetRanked() bool {
@@ -2747,7 +3111,7 @@ type Condition struct {
 
 func (x *Condition) Reset() {
 	*x = Condition{}
-	mi := &file_leonsdb_v1_data_proto_msgTypes[37]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2759,7 +3123,7 @@ func (x *Condition) String() string {
 func (*Condition) ProtoMessage() {}
 
 func (x *Condition) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_data_proto_msgTypes[37]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2772,7 +3136,7 @@ func (x *Condition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Condition.ProtoReflect.Descriptor instead.
 func (*Condition) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{37}
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *Condition) GetField() string {
@@ -2826,7 +3190,7 @@ type TransactionWrite struct {
 
 func (x *TransactionWrite) Reset() {
 	*x = TransactionWrite{}
-	mi := &file_leonsdb_v1_data_proto_msgTypes[38]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2838,7 +3202,7 @@ func (x *TransactionWrite) String() string {
 func (*TransactionWrite) ProtoMessage() {}
 
 func (x *TransactionWrite) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_data_proto_msgTypes[38]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2851,7 +3215,7 @@ func (x *TransactionWrite) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransactionWrite.ProtoReflect.Descriptor instead.
 func (*TransactionWrite) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{38}
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *TransactionWrite) GetRef() *RecordRef {
@@ -2919,7 +3283,7 @@ type TransactRequest struct {
 
 func (x *TransactRequest) Reset() {
 	*x = TransactRequest{}
-	mi := &file_leonsdb_v1_data_proto_msgTypes[39]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2931,7 +3295,7 @@ func (x *TransactRequest) String() string {
 func (*TransactRequest) ProtoMessage() {}
 
 func (x *TransactRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_data_proto_msgTypes[39]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2944,7 +3308,7 @@ func (x *TransactRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransactRequest.ProtoReflect.Descriptor instead.
 func (*TransactRequest) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{39}
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *TransactRequest) GetWrites() []*TransactionWrite {
@@ -2976,7 +3340,7 @@ type TransactionResult struct {
 
 func (x *TransactionResult) Reset() {
 	*x = TransactionResult{}
-	mi := &file_leonsdb_v1_data_proto_msgTypes[40]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2988,7 +3352,7 @@ func (x *TransactionResult) String() string {
 func (*TransactionResult) ProtoMessage() {}
 
 func (x *TransactionResult) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_data_proto_msgTypes[40]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3001,7 +3365,7 @@ func (x *TransactionResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransactionResult.ProtoReflect.Descriptor instead.
 func (*TransactionResult) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{40}
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *TransactionResult) GetVersion() uint64 {
@@ -3038,7 +3402,7 @@ type TransactResponse struct {
 
 func (x *TransactResponse) Reset() {
 	*x = TransactResponse{}
-	mi := &file_leonsdb_v1_data_proto_msgTypes[41]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3050,7 +3414,7 @@ func (x *TransactResponse) String() string {
 func (*TransactResponse) ProtoMessage() {}
 
 func (x *TransactResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_data_proto_msgTypes[41]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3063,7 +3427,7 @@ func (x *TransactResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransactResponse.ProtoReflect.Descriptor instead.
 func (*TransactResponse) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{41}
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *TransactResponse) GetResults() []*TransactionResult {
@@ -3098,7 +3462,7 @@ type WatchChangesRequest struct {
 
 func (x *WatchChangesRequest) Reset() {
 	*x = WatchChangesRequest{}
-	mi := &file_leonsdb_v1_data_proto_msgTypes[42]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3110,7 +3474,7 @@ func (x *WatchChangesRequest) String() string {
 func (*WatchChangesRequest) ProtoMessage() {}
 
 func (x *WatchChangesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_data_proto_msgTypes[42]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3123,7 +3487,7 @@ func (x *WatchChangesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WatchChangesRequest.ProtoReflect.Descriptor instead.
 func (*WatchChangesRequest) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{42}
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *WatchChangesRequest) GetNamespace() string {
@@ -3185,7 +3549,7 @@ type ChangeEvent struct {
 
 func (x *ChangeEvent) Reset() {
 	*x = ChangeEvent{}
-	mi := &file_leonsdb_v1_data_proto_msgTypes[43]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3197,7 +3561,7 @@ func (x *ChangeEvent) String() string {
 func (*ChangeEvent) ProtoMessage() {}
 
 func (x *ChangeEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_data_proto_msgTypes[43]
+	mi := &file_leonsdb_v1_data_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3210,7 +3574,7 @@ func (x *ChangeEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChangeEvent.ProtoReflect.Descriptor instead.
 func (*ChangeEvent) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{43}
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *ChangeEvent) GetSequence() uint64 {
@@ -3418,7 +3782,26 @@ const file_leonsdb_v1_data_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\v2\x11.leonsdb.v1.ValueR\x05value:\x028\x01B\x05\n" +
 	"\x03key\"D\n" +
 	"\x0eImportResponse\x122\n" +
-	"\aresults\x18\x01 \x03(\v2\x18.leonsdb.v1.ApplyOutcomeR\aresults\"D\n" +
+	"\aresults\x18\x01 \x03(\v2\x18.leonsdb.v1.ApplyOutcomeR\aresults\"V\n" +
+	"\x16BeginBulkImportRequest\x12\x1c\n" +
+	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1e\n" +
+	"\n" +
+	"collection\x18\x02 \x01(\tR\n" +
+	"collection\"6\n" +
+	"\x17BeginBulkImportResponse\x12\x1b\n" +
+	"\timport_id\x18\x01 \x01(\tR\bimportId\"d\n" +
+	"\x11BulkImportRequest\x12\x1b\n" +
+	"\timport_id\x18\x01 \x01(\tR\bimportId\x122\n" +
+	"\arecords\x18\x02 \x03(\v2\x18.leonsdb.v1.ImportRecordR\arecords\"H\n" +
+	"\x12BulkImportResponse\x122\n" +
+	"\aresults\x18\x01 \x03(\v2\x18.leonsdb.v1.ApplyOutcomeR\aresults\"6\n" +
+	"\x17CommitBulkImportRequest\x12\x1b\n" +
+	"\timport_id\x18\x01 \x01(\tR\bimportId\"6\n" +
+	"\x18CommitBulkImportResponse\x12\x1a\n" +
+	"\bimported\x18\x01 \x01(\x04R\bimported\"5\n" +
+	"\x16AbortBulkImportRequest\x12\x1b\n" +
+	"\timport_id\x18\x01 \x01(\tR\bimportId\"\x19\n" +
+	"\x17AbortBulkImportResponse\"D\n" +
 	"\x10ApplyManyRequest\x120\n" +
 	"\x06writes\x18\x01 \x03(\v2\x18.leonsdb.v1.ApplyRequestR\x06writes\"G\n" +
 	"\x11ApplyManyResponse\x122\n" +
@@ -3561,14 +3944,19 @@ const file_leonsdb_v1_data_proto_rawDesc = "" +
 	"\x12COMPARISON_GREATER\x10\x05\x12\x1f\n" +
 	"\x1bCOMPARISON_GREATER_OR_EQUAL\x10\x06\x12\x15\n" +
 	"\x11COMPARISON_EXISTS\x10\a\x12\x16\n" +
-	"\x12COMPARISON_MISSING\x10\b2\xcb\x06\n" +
+	"\x12COMPARISON_MISSING\x10\b2\xaf\t\n" +
 	"\vDataService\x12]\n" +
 	"\x10EnsureCollection\x12#.leonsdb.v1.EnsureCollectionRequest\x1a$.leonsdb.v1.EnsureCollectionResponse\x12Z\n" +
 	"\x0fListCollections\x12\".leonsdb.v1.ListCollectionsRequest\x1a#.leonsdb.v1.ListCollectionsResponse\x126\n" +
 	"\x03Get\x12\x16.leonsdb.v1.GetRequest\x1a\x17.leonsdb.v1.GetResponse\x12<\n" +
 	"\x05Apply\x12\x18.leonsdb.v1.ApplyRequest\x1a\x19.leonsdb.v1.ApplyResponse\x12H\n" +
 	"\tApplyMany\x12\x1c.leonsdb.v1.ApplyManyRequest\x1a\x1d.leonsdb.v1.ApplyManyResponse\x12?\n" +
-	"\x06Import\x12\x19.leonsdb.v1.ImportRequest\x1a\x1a.leonsdb.v1.ImportResponse\x12?\n" +
+	"\x06Import\x12\x19.leonsdb.v1.ImportRequest\x1a\x1a.leonsdb.v1.ImportResponse\x12Z\n" +
+	"\x0fBeginBulkImport\x12\".leonsdb.v1.BeginBulkImportRequest\x1a#.leonsdb.v1.BeginBulkImportResponse\x12K\n" +
+	"\n" +
+	"BulkImport\x12\x1d.leonsdb.v1.BulkImportRequest\x1a\x1e.leonsdb.v1.BulkImportResponse\x12]\n" +
+	"\x10CommitBulkImport\x12#.leonsdb.v1.CommitBulkImportRequest\x1a$.leonsdb.v1.CommitBulkImportResponse\x12Z\n" +
+	"\x0fAbortBulkImport\x12\".leonsdb.v1.AbortBulkImportRequest\x1a#.leonsdb.v1.AbortBulkImportResponse\x12?\n" +
 	"\x06Delete\x12\x19.leonsdb.v1.DeleteRequest\x1a\x1a.leonsdb.v1.DeleteResponse\x129\n" +
 	"\x04Scan\x12\x17.leonsdb.v1.ScanRequest\x1a\x18.leonsdb.v1.ScanResponse\x126\n" +
 	"\x03Top\x12\x16.leonsdb.v1.TopRequest\x1a\x17.leonsdb.v1.TopResponse\x129\n" +
@@ -3590,7 +3978,7 @@ func file_leonsdb_v1_data_proto_rawDescGZIP() []byte {
 }
 
 var file_leonsdb_v1_data_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_leonsdb_v1_data_proto_msgTypes = make([]protoimpl.MessageInfo, 51)
+var file_leonsdb_v1_data_proto_msgTypes = make([]protoimpl.MessageInfo, 59)
 var file_leonsdb_v1_data_proto_goTypes = []any{
 	(CollectionKind)(0),              // 0: leonsdb.v1.CollectionKind
 	(FieldType)(0),                   // 1: leonsdb.v1.FieldType
@@ -3619,33 +4007,41 @@ var file_leonsdb_v1_data_proto_goTypes = []any{
 	(*ImportRequest)(nil),            // 24: leonsdb.v1.ImportRequest
 	(*ImportRecord)(nil),             // 25: leonsdb.v1.ImportRecord
 	(*ImportResponse)(nil),           // 26: leonsdb.v1.ImportResponse
-	(*ApplyManyRequest)(nil),         // 27: leonsdb.v1.ApplyManyRequest
-	(*ApplyManyResponse)(nil),        // 28: leonsdb.v1.ApplyManyResponse
-	(*ApplyOutcome)(nil),             // 29: leonsdb.v1.ApplyOutcome
-	(*WriteError)(nil),               // 30: leonsdb.v1.WriteError
-	(*DeleteRequest)(nil),            // 31: leonsdb.v1.DeleteRequest
-	(*DeleteResponse)(nil),           // 32: leonsdb.v1.DeleteResponse
-	(*ScanRequest)(nil),              // 33: leonsdb.v1.ScanRequest
-	(*ScanResponse)(nil),             // 34: leonsdb.v1.ScanResponse
-	(*TopRequest)(nil),               // 35: leonsdb.v1.TopRequest
-	(*RankedEntry)(nil),              // 36: leonsdb.v1.RankedEntry
-	(*TopResponse)(nil),              // 37: leonsdb.v1.TopResponse
-	(*RankRequest)(nil),              // 38: leonsdb.v1.RankRequest
-	(*RankResponse)(nil),             // 39: leonsdb.v1.RankResponse
-	(*Condition)(nil),                // 40: leonsdb.v1.Condition
-	(*TransactionWrite)(nil),         // 41: leonsdb.v1.TransactionWrite
-	(*TransactRequest)(nil),          // 42: leonsdb.v1.TransactRequest
-	(*TransactionResult)(nil),        // 43: leonsdb.v1.TransactionResult
-	(*TransactResponse)(nil),         // 44: leonsdb.v1.TransactResponse
-	(*WatchChangesRequest)(nil),      // 45: leonsdb.v1.WatchChangesRequest
-	(*ChangeEvent)(nil),              // 46: leonsdb.v1.ChangeEvent
-	nil,                              // 47: leonsdb.v1.ValueMap.EntriesEntry
-	nil,                              // 48: leonsdb.v1.Inventory.SlotsEntry
-	nil,                              // 49: leonsdb.v1.Record.FieldsEntry
-	nil,                              // 50: leonsdb.v1.ApplyResponse.FieldsEntry
-	nil,                              // 51: leonsdb.v1.ImportRecord.FieldsEntry
-	nil,                              // 52: leonsdb.v1.TransactionResult.FieldsEntry
-	nil,                              // 53: leonsdb.v1.ChangeEvent.FieldsEntry
+	(*BeginBulkImportRequest)(nil),   // 27: leonsdb.v1.BeginBulkImportRequest
+	(*BeginBulkImportResponse)(nil),  // 28: leonsdb.v1.BeginBulkImportResponse
+	(*BulkImportRequest)(nil),        // 29: leonsdb.v1.BulkImportRequest
+	(*BulkImportResponse)(nil),       // 30: leonsdb.v1.BulkImportResponse
+	(*CommitBulkImportRequest)(nil),  // 31: leonsdb.v1.CommitBulkImportRequest
+	(*CommitBulkImportResponse)(nil), // 32: leonsdb.v1.CommitBulkImportResponse
+	(*AbortBulkImportRequest)(nil),   // 33: leonsdb.v1.AbortBulkImportRequest
+	(*AbortBulkImportResponse)(nil),  // 34: leonsdb.v1.AbortBulkImportResponse
+	(*ApplyManyRequest)(nil),         // 35: leonsdb.v1.ApplyManyRequest
+	(*ApplyManyResponse)(nil),        // 36: leonsdb.v1.ApplyManyResponse
+	(*ApplyOutcome)(nil),             // 37: leonsdb.v1.ApplyOutcome
+	(*WriteError)(nil),               // 38: leonsdb.v1.WriteError
+	(*DeleteRequest)(nil),            // 39: leonsdb.v1.DeleteRequest
+	(*DeleteResponse)(nil),           // 40: leonsdb.v1.DeleteResponse
+	(*ScanRequest)(nil),              // 41: leonsdb.v1.ScanRequest
+	(*ScanResponse)(nil),             // 42: leonsdb.v1.ScanResponse
+	(*TopRequest)(nil),               // 43: leonsdb.v1.TopRequest
+	(*RankedEntry)(nil),              // 44: leonsdb.v1.RankedEntry
+	(*TopResponse)(nil),              // 45: leonsdb.v1.TopResponse
+	(*RankRequest)(nil),              // 46: leonsdb.v1.RankRequest
+	(*RankResponse)(nil),             // 47: leonsdb.v1.RankResponse
+	(*Condition)(nil),                // 48: leonsdb.v1.Condition
+	(*TransactionWrite)(nil),         // 49: leonsdb.v1.TransactionWrite
+	(*TransactRequest)(nil),          // 50: leonsdb.v1.TransactRequest
+	(*TransactionResult)(nil),        // 51: leonsdb.v1.TransactionResult
+	(*TransactResponse)(nil),         // 52: leonsdb.v1.TransactResponse
+	(*WatchChangesRequest)(nil),      // 53: leonsdb.v1.WatchChangesRequest
+	(*ChangeEvent)(nil),              // 54: leonsdb.v1.ChangeEvent
+	nil,                              // 55: leonsdb.v1.ValueMap.EntriesEntry
+	nil,                              // 56: leonsdb.v1.Inventory.SlotsEntry
+	nil,                              // 57: leonsdb.v1.Record.FieldsEntry
+	nil,                              // 58: leonsdb.v1.ApplyResponse.FieldsEntry
+	nil,                              // 59: leonsdb.v1.ImportRecord.FieldsEntry
+	nil,                              // 60: leonsdb.v1.TransactionResult.FieldsEntry
+	nil,                              // 61: leonsdb.v1.ChangeEvent.FieldsEntry
 }
 var file_leonsdb_v1_data_proto_depIdxs = []int32{
 	4,  // 0: leonsdb.v1.Value.list_value:type_name -> leonsdb.v1.ValueList
@@ -3654,14 +4050,14 @@ var file_leonsdb_v1_data_proto_depIdxs = []int32{
 	7,  // 3: leonsdb.v1.Value.location_value:type_name -> leonsdb.v1.Location
 	8,  // 4: leonsdb.v1.Value.inventory_value:type_name -> leonsdb.v1.Inventory
 	3,  // 5: leonsdb.v1.ValueList.values:type_name -> leonsdb.v1.Value
-	47, // 6: leonsdb.v1.ValueMap.entries:type_name -> leonsdb.v1.ValueMap.EntriesEntry
-	48, // 7: leonsdb.v1.Inventory.slots:type_name -> leonsdb.v1.Inventory.SlotsEntry
+	55, // 6: leonsdb.v1.ValueMap.entries:type_name -> leonsdb.v1.ValueMap.EntriesEntry
+	56, // 7: leonsdb.v1.Inventory.slots:type_name -> leonsdb.v1.Inventory.SlotsEntry
 	0,  // 8: leonsdb.v1.Collection.kind:type_name -> leonsdb.v1.CollectionKind
 	11, // 9: leonsdb.v1.Collection.schema:type_name -> leonsdb.v1.Schema
 	1,  // 10: leonsdb.v1.FieldSchema.type:type_name -> leonsdb.v1.FieldType
 	10, // 11: leonsdb.v1.Schema.fields:type_name -> leonsdb.v1.FieldSchema
 	12, // 12: leonsdb.v1.Record.ref:type_name -> leonsdb.v1.RecordRef
-	49, // 13: leonsdb.v1.Record.fields:type_name -> leonsdb.v1.Record.FieldsEntry
+	57, // 13: leonsdb.v1.Record.fields:type_name -> leonsdb.v1.Record.FieldsEntry
 	3,  // 14: leonsdb.v1.Operation.set:type_name -> leonsdb.v1.Value
 	3,  // 15: leonsdb.v1.Operation.increment:type_name -> leonsdb.v1.Value
 	15, // 16: leonsdb.v1.Operation.unset:type_name -> leonsdb.v1.Unset
@@ -3673,69 +4069,79 @@ var file_leonsdb_v1_data_proto_depIdxs = []int32{
 	13, // 22: leonsdb.v1.GetResponse.record:type_name -> leonsdb.v1.Record
 	12, // 23: leonsdb.v1.ApplyRequest.ref:type_name -> leonsdb.v1.RecordRef
 	14, // 24: leonsdb.v1.ApplyRequest.operations:type_name -> leonsdb.v1.Operation
-	50, // 25: leonsdb.v1.ApplyResponse.fields:type_name -> leonsdb.v1.ApplyResponse.FieldsEntry
+	58, // 25: leonsdb.v1.ApplyResponse.fields:type_name -> leonsdb.v1.ApplyResponse.FieldsEntry
 	25, // 26: leonsdb.v1.ImportRequest.records:type_name -> leonsdb.v1.ImportRecord
-	51, // 27: leonsdb.v1.ImportRecord.fields:type_name -> leonsdb.v1.ImportRecord.FieldsEntry
-	29, // 28: leonsdb.v1.ImportResponse.results:type_name -> leonsdb.v1.ApplyOutcome
-	22, // 29: leonsdb.v1.ApplyManyRequest.writes:type_name -> leonsdb.v1.ApplyRequest
-	29, // 30: leonsdb.v1.ApplyManyResponse.results:type_name -> leonsdb.v1.ApplyOutcome
-	23, // 31: leonsdb.v1.ApplyOutcome.response:type_name -> leonsdb.v1.ApplyResponse
-	30, // 32: leonsdb.v1.ApplyOutcome.error:type_name -> leonsdb.v1.WriteError
-	12, // 33: leonsdb.v1.DeleteRequest.ref:type_name -> leonsdb.v1.RecordRef
-	13, // 34: leonsdb.v1.ScanResponse.records:type_name -> leonsdb.v1.Record
-	12, // 35: leonsdb.v1.RankedEntry.ref:type_name -> leonsdb.v1.RecordRef
-	3,  // 36: leonsdb.v1.RankedEntry.value:type_name -> leonsdb.v1.Value
-	13, // 37: leonsdb.v1.RankedEntry.record:type_name -> leonsdb.v1.Record
-	36, // 38: leonsdb.v1.TopResponse.entries:type_name -> leonsdb.v1.RankedEntry
-	12, // 39: leonsdb.v1.RankRequest.ref:type_name -> leonsdb.v1.RecordRef
-	3,  // 40: leonsdb.v1.RankResponse.value:type_name -> leonsdb.v1.Value
-	2,  // 41: leonsdb.v1.Condition.comparison:type_name -> leonsdb.v1.Comparison
-	3,  // 42: leonsdb.v1.Condition.value:type_name -> leonsdb.v1.Value
-	12, // 43: leonsdb.v1.TransactionWrite.ref:type_name -> leonsdb.v1.RecordRef
-	14, // 44: leonsdb.v1.TransactionWrite.operations:type_name -> leonsdb.v1.Operation
-	40, // 45: leonsdb.v1.TransactionWrite.conditions:type_name -> leonsdb.v1.Condition
-	14, // 46: leonsdb.v1.TransactionWrite.owner_operations:type_name -> leonsdb.v1.Operation
-	41, // 47: leonsdb.v1.TransactRequest.writes:type_name -> leonsdb.v1.TransactionWrite
-	52, // 48: leonsdb.v1.TransactionResult.fields:type_name -> leonsdb.v1.TransactionResult.FieldsEntry
-	43, // 49: leonsdb.v1.TransactResponse.results:type_name -> leonsdb.v1.TransactionResult
-	12, // 50: leonsdb.v1.ChangeEvent.ref:type_name -> leonsdb.v1.RecordRef
-	53, // 51: leonsdb.v1.ChangeEvent.fields:type_name -> leonsdb.v1.ChangeEvent.FieldsEntry
-	3,  // 52: leonsdb.v1.ValueMap.EntriesEntry.value:type_name -> leonsdb.v1.Value
-	6,  // 53: leonsdb.v1.Inventory.SlotsEntry.value:type_name -> leonsdb.v1.MinecraftItem
-	3,  // 54: leonsdb.v1.Record.FieldsEntry.value:type_name -> leonsdb.v1.Value
-	3,  // 55: leonsdb.v1.ApplyResponse.FieldsEntry.value:type_name -> leonsdb.v1.Value
-	3,  // 56: leonsdb.v1.ImportRecord.FieldsEntry.value:type_name -> leonsdb.v1.Value
-	3,  // 57: leonsdb.v1.TransactionResult.FieldsEntry.value:type_name -> leonsdb.v1.Value
-	3,  // 58: leonsdb.v1.ChangeEvent.FieldsEntry.value:type_name -> leonsdb.v1.Value
-	16, // 59: leonsdb.v1.DataService.EnsureCollection:input_type -> leonsdb.v1.EnsureCollectionRequest
-	18, // 60: leonsdb.v1.DataService.ListCollections:input_type -> leonsdb.v1.ListCollectionsRequest
-	20, // 61: leonsdb.v1.DataService.Get:input_type -> leonsdb.v1.GetRequest
-	22, // 62: leonsdb.v1.DataService.Apply:input_type -> leonsdb.v1.ApplyRequest
-	27, // 63: leonsdb.v1.DataService.ApplyMany:input_type -> leonsdb.v1.ApplyManyRequest
-	24, // 64: leonsdb.v1.DataService.Import:input_type -> leonsdb.v1.ImportRequest
-	31, // 65: leonsdb.v1.DataService.Delete:input_type -> leonsdb.v1.DeleteRequest
-	33, // 66: leonsdb.v1.DataService.Scan:input_type -> leonsdb.v1.ScanRequest
-	35, // 67: leonsdb.v1.DataService.Top:input_type -> leonsdb.v1.TopRequest
-	38, // 68: leonsdb.v1.DataService.Rank:input_type -> leonsdb.v1.RankRequest
-	42, // 69: leonsdb.v1.DataService.Transact:input_type -> leonsdb.v1.TransactRequest
-	45, // 70: leonsdb.v1.DataService.WatchChanges:input_type -> leonsdb.v1.WatchChangesRequest
-	17, // 71: leonsdb.v1.DataService.EnsureCollection:output_type -> leonsdb.v1.EnsureCollectionResponse
-	19, // 72: leonsdb.v1.DataService.ListCollections:output_type -> leonsdb.v1.ListCollectionsResponse
-	21, // 73: leonsdb.v1.DataService.Get:output_type -> leonsdb.v1.GetResponse
-	23, // 74: leonsdb.v1.DataService.Apply:output_type -> leonsdb.v1.ApplyResponse
-	28, // 75: leonsdb.v1.DataService.ApplyMany:output_type -> leonsdb.v1.ApplyManyResponse
-	26, // 76: leonsdb.v1.DataService.Import:output_type -> leonsdb.v1.ImportResponse
-	32, // 77: leonsdb.v1.DataService.Delete:output_type -> leonsdb.v1.DeleteResponse
-	34, // 78: leonsdb.v1.DataService.Scan:output_type -> leonsdb.v1.ScanResponse
-	37, // 79: leonsdb.v1.DataService.Top:output_type -> leonsdb.v1.TopResponse
-	39, // 80: leonsdb.v1.DataService.Rank:output_type -> leonsdb.v1.RankResponse
-	44, // 81: leonsdb.v1.DataService.Transact:output_type -> leonsdb.v1.TransactResponse
-	46, // 82: leonsdb.v1.DataService.WatchChanges:output_type -> leonsdb.v1.ChangeEvent
-	71, // [71:83] is the sub-list for method output_type
-	59, // [59:71] is the sub-list for method input_type
-	59, // [59:59] is the sub-list for extension type_name
-	59, // [59:59] is the sub-list for extension extendee
-	0,  // [0:59] is the sub-list for field type_name
+	59, // 27: leonsdb.v1.ImportRecord.fields:type_name -> leonsdb.v1.ImportRecord.FieldsEntry
+	37, // 28: leonsdb.v1.ImportResponse.results:type_name -> leonsdb.v1.ApplyOutcome
+	25, // 29: leonsdb.v1.BulkImportRequest.records:type_name -> leonsdb.v1.ImportRecord
+	37, // 30: leonsdb.v1.BulkImportResponse.results:type_name -> leonsdb.v1.ApplyOutcome
+	22, // 31: leonsdb.v1.ApplyManyRequest.writes:type_name -> leonsdb.v1.ApplyRequest
+	37, // 32: leonsdb.v1.ApplyManyResponse.results:type_name -> leonsdb.v1.ApplyOutcome
+	23, // 33: leonsdb.v1.ApplyOutcome.response:type_name -> leonsdb.v1.ApplyResponse
+	38, // 34: leonsdb.v1.ApplyOutcome.error:type_name -> leonsdb.v1.WriteError
+	12, // 35: leonsdb.v1.DeleteRequest.ref:type_name -> leonsdb.v1.RecordRef
+	13, // 36: leonsdb.v1.ScanResponse.records:type_name -> leonsdb.v1.Record
+	12, // 37: leonsdb.v1.RankedEntry.ref:type_name -> leonsdb.v1.RecordRef
+	3,  // 38: leonsdb.v1.RankedEntry.value:type_name -> leonsdb.v1.Value
+	13, // 39: leonsdb.v1.RankedEntry.record:type_name -> leonsdb.v1.Record
+	44, // 40: leonsdb.v1.TopResponse.entries:type_name -> leonsdb.v1.RankedEntry
+	12, // 41: leonsdb.v1.RankRequest.ref:type_name -> leonsdb.v1.RecordRef
+	3,  // 42: leonsdb.v1.RankResponse.value:type_name -> leonsdb.v1.Value
+	2,  // 43: leonsdb.v1.Condition.comparison:type_name -> leonsdb.v1.Comparison
+	3,  // 44: leonsdb.v1.Condition.value:type_name -> leonsdb.v1.Value
+	12, // 45: leonsdb.v1.TransactionWrite.ref:type_name -> leonsdb.v1.RecordRef
+	14, // 46: leonsdb.v1.TransactionWrite.operations:type_name -> leonsdb.v1.Operation
+	48, // 47: leonsdb.v1.TransactionWrite.conditions:type_name -> leonsdb.v1.Condition
+	14, // 48: leonsdb.v1.TransactionWrite.owner_operations:type_name -> leonsdb.v1.Operation
+	49, // 49: leonsdb.v1.TransactRequest.writes:type_name -> leonsdb.v1.TransactionWrite
+	60, // 50: leonsdb.v1.TransactionResult.fields:type_name -> leonsdb.v1.TransactionResult.FieldsEntry
+	51, // 51: leonsdb.v1.TransactResponse.results:type_name -> leonsdb.v1.TransactionResult
+	12, // 52: leonsdb.v1.ChangeEvent.ref:type_name -> leonsdb.v1.RecordRef
+	61, // 53: leonsdb.v1.ChangeEvent.fields:type_name -> leonsdb.v1.ChangeEvent.FieldsEntry
+	3,  // 54: leonsdb.v1.ValueMap.EntriesEntry.value:type_name -> leonsdb.v1.Value
+	6,  // 55: leonsdb.v1.Inventory.SlotsEntry.value:type_name -> leonsdb.v1.MinecraftItem
+	3,  // 56: leonsdb.v1.Record.FieldsEntry.value:type_name -> leonsdb.v1.Value
+	3,  // 57: leonsdb.v1.ApplyResponse.FieldsEntry.value:type_name -> leonsdb.v1.Value
+	3,  // 58: leonsdb.v1.ImportRecord.FieldsEntry.value:type_name -> leonsdb.v1.Value
+	3,  // 59: leonsdb.v1.TransactionResult.FieldsEntry.value:type_name -> leonsdb.v1.Value
+	3,  // 60: leonsdb.v1.ChangeEvent.FieldsEntry.value:type_name -> leonsdb.v1.Value
+	16, // 61: leonsdb.v1.DataService.EnsureCollection:input_type -> leonsdb.v1.EnsureCollectionRequest
+	18, // 62: leonsdb.v1.DataService.ListCollections:input_type -> leonsdb.v1.ListCollectionsRequest
+	20, // 63: leonsdb.v1.DataService.Get:input_type -> leonsdb.v1.GetRequest
+	22, // 64: leonsdb.v1.DataService.Apply:input_type -> leonsdb.v1.ApplyRequest
+	35, // 65: leonsdb.v1.DataService.ApplyMany:input_type -> leonsdb.v1.ApplyManyRequest
+	24, // 66: leonsdb.v1.DataService.Import:input_type -> leonsdb.v1.ImportRequest
+	27, // 67: leonsdb.v1.DataService.BeginBulkImport:input_type -> leonsdb.v1.BeginBulkImportRequest
+	29, // 68: leonsdb.v1.DataService.BulkImport:input_type -> leonsdb.v1.BulkImportRequest
+	31, // 69: leonsdb.v1.DataService.CommitBulkImport:input_type -> leonsdb.v1.CommitBulkImportRequest
+	33, // 70: leonsdb.v1.DataService.AbortBulkImport:input_type -> leonsdb.v1.AbortBulkImportRequest
+	39, // 71: leonsdb.v1.DataService.Delete:input_type -> leonsdb.v1.DeleteRequest
+	41, // 72: leonsdb.v1.DataService.Scan:input_type -> leonsdb.v1.ScanRequest
+	43, // 73: leonsdb.v1.DataService.Top:input_type -> leonsdb.v1.TopRequest
+	46, // 74: leonsdb.v1.DataService.Rank:input_type -> leonsdb.v1.RankRequest
+	50, // 75: leonsdb.v1.DataService.Transact:input_type -> leonsdb.v1.TransactRequest
+	53, // 76: leonsdb.v1.DataService.WatchChanges:input_type -> leonsdb.v1.WatchChangesRequest
+	17, // 77: leonsdb.v1.DataService.EnsureCollection:output_type -> leonsdb.v1.EnsureCollectionResponse
+	19, // 78: leonsdb.v1.DataService.ListCollections:output_type -> leonsdb.v1.ListCollectionsResponse
+	21, // 79: leonsdb.v1.DataService.Get:output_type -> leonsdb.v1.GetResponse
+	23, // 80: leonsdb.v1.DataService.Apply:output_type -> leonsdb.v1.ApplyResponse
+	36, // 81: leonsdb.v1.DataService.ApplyMany:output_type -> leonsdb.v1.ApplyManyResponse
+	26, // 82: leonsdb.v1.DataService.Import:output_type -> leonsdb.v1.ImportResponse
+	28, // 83: leonsdb.v1.DataService.BeginBulkImport:output_type -> leonsdb.v1.BeginBulkImportResponse
+	30, // 84: leonsdb.v1.DataService.BulkImport:output_type -> leonsdb.v1.BulkImportResponse
+	32, // 85: leonsdb.v1.DataService.CommitBulkImport:output_type -> leonsdb.v1.CommitBulkImportResponse
+	34, // 86: leonsdb.v1.DataService.AbortBulkImport:output_type -> leonsdb.v1.AbortBulkImportResponse
+	40, // 87: leonsdb.v1.DataService.Delete:output_type -> leonsdb.v1.DeleteResponse
+	42, // 88: leonsdb.v1.DataService.Scan:output_type -> leonsdb.v1.ScanResponse
+	45, // 89: leonsdb.v1.DataService.Top:output_type -> leonsdb.v1.TopResponse
+	47, // 90: leonsdb.v1.DataService.Rank:output_type -> leonsdb.v1.RankResponse
+	52, // 91: leonsdb.v1.DataService.Transact:output_type -> leonsdb.v1.TransactResponse
+	54, // 92: leonsdb.v1.DataService.WatchChanges:output_type -> leonsdb.v1.ChangeEvent
+	77, // [77:93] is the sub-list for method output_type
+	61, // [61:77] is the sub-list for method input_type
+	61, // [61:61] is the sub-list for extension type_name
+	61, // [61:61] is the sub-list for extension extendee
+	0,  // [0:61] is the sub-list for field type_name
 }
 
 func init() { file_leonsdb_v1_data_proto_init() }
@@ -3772,15 +4178,15 @@ func file_leonsdb_v1_data_proto_init() {
 		(*ImportRecord_Player)(nil),
 		(*ImportRecord_Id)(nil),
 	}
-	file_leonsdb_v1_data_proto_msgTypes[28].OneofWrappers = []any{}
-	file_leonsdb_v1_data_proto_msgTypes[38].OneofWrappers = []any{}
+	file_leonsdb_v1_data_proto_msgTypes[36].OneofWrappers = []any{}
+	file_leonsdb_v1_data_proto_msgTypes[46].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_leonsdb_v1_data_proto_rawDesc), len(file_leonsdb_v1_data_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   51,
+			NumMessages:   59,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

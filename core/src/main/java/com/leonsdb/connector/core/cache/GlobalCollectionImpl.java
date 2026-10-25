@@ -80,7 +80,7 @@ final class GlobalCollectionImpl<T> implements GlobalCollection<T> {
             if (ops.isEmpty()) {
                 return CompletableFuture.completedFuture(obj);
             }
-            return client.apply(ref, ops, 0, OptionalLong.of(version))
+            return client.save(ref, ops, 0, OptionalLong.of(version))
                     .thenApply(r -> obj)
                     .exceptionallyCompose(err -> {
                         Throwable cause = err instanceof CompletionException && err.getCause() != null ? err.getCause() : err;

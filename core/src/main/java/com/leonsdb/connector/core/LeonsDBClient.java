@@ -222,6 +222,23 @@ public final class LeonsDBClient implements AutoCloseable {
     }
 
     /**
+     * Saves operations to a record, as {@link #apply} does, but the response
+     * carries only the new version: for a caller that holds the values
+     * already, which saves the server encoding and sending them.
+     *
+     * @param ref             the record
+     * @param ops             the operations
+     * @param epoch           the writer's fencing epoch
+     * @param expectedVersion if present, the version the record must have
+     * @return the new version, without fields
+     */
+    public CompletableFuture<ApplyResponse> save(RecordRef ref, List<Operation> ops, long epoch, OptionalLong expectedVersion) {
+        var req = ApplyRequest.newBuilder().setRef(ref).addAllOperations(ops).setEpoch(epoch).setOmitFields(true);
+        expectedVersion.ifPresent(req::setExpectedVersion);
+        return saves.apply(req.build());
+    }
+
+    /**
      * Atomically applies a transaction.
      *
      * @param request the writes and the transaction id

@@ -1619,8 +1619,11 @@ type ApplyRequest struct {
 	// equals this value (0 means "the record must not exist"). Otherwise it
 	// fails with ABORTED (reason VERSION_MISMATCH).
 	ExpectedVersion *uint64 `protobuf:"varint,4,opt,name=expected_version,json=expectedVersion,proto3,oneof" json:"expected_version,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Leave the fields out of the response: only the version is sent back,
+	// which is all a client that already holds the values needs.
+	OmitFields    bool `protobuf:"varint,5,opt,name=omit_fields,json=omitFields,proto3" json:"omit_fields,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ApplyRequest) Reset() {
@@ -1681,12 +1684,20 @@ func (x *ApplyRequest) GetExpectedVersion() uint64 {
 	return 0
 }
 
+func (x *ApplyRequest) GetOmitFields() bool {
+	if x != nil {
+		return x.OmitFields
+	}
+	return false
+}
+
 type ApplyResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The record's version after this change.
 	Version uint64 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
 	// The new values of the fields this request touched. Unset fields are
-	// absent. Useful to learn the result of an increment.
+	// absent. Useful to learn the result of an increment. None when the
+	// request set omit_fields.
 	Fields        map[string]*Value `protobuf:"bytes,2,rep,name=fields,proto3" json:"fields,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3752,14 +3763,16 @@ const file_leonsdb_v1_data_proto_rawDesc = "" +
 	"\x03ref\x18\x01 \x01(\v2\x15.leonsdb.v1.RecordRefR\x03ref\"O\n" +
 	"\vGetResponse\x12\x14\n" +
 	"\x05found\x18\x01 \x01(\bR\x05found\x12*\n" +
-	"\x06record\x18\x02 \x01(\v2\x12.leonsdb.v1.RecordR\x06record\"\xc9\x01\n" +
+	"\x06record\x18\x02 \x01(\v2\x12.leonsdb.v1.RecordR\x06record\"\xea\x01\n" +
 	"\fApplyRequest\x12'\n" +
 	"\x03ref\x18\x01 \x01(\v2\x15.leonsdb.v1.RecordRefR\x03ref\x125\n" +
 	"\n" +
 	"operations\x18\x02 \x03(\v2\x15.leonsdb.v1.OperationR\n" +
 	"operations\x12\x14\n" +
 	"\x05epoch\x18\x03 \x01(\x04R\x05epoch\x12.\n" +
-	"\x10expected_version\x18\x04 \x01(\x04H\x00R\x0fexpectedVersion\x88\x01\x01B\x13\n" +
+	"\x10expected_version\x18\x04 \x01(\x04H\x00R\x0fexpectedVersion\x88\x01\x01\x12\x1f\n" +
+	"\vomit_fields\x18\x05 \x01(\bR\n" +
+	"omitFieldsB\x13\n" +
 	"\x11_expected_version\"\xb6\x01\n" +
 	"\rApplyResponse\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x04R\aversion\x12=\n" +

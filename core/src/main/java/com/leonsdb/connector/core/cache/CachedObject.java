@@ -182,7 +182,7 @@ public final class CachedObject<T> {
             inFlight = true;
             expected = version;
         }
-        client.apply(ref, ops, epoch.getAsLong(), OptionalLong.of(expected))
+        client.save(ref, ops, epoch.getAsLong(), OptionalLong.of(expected))
                 .whenComplete((resp, err) -> {
                     if (err == null) {
                         onSaved(snapshot, resp.getVersion(), waiters);

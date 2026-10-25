@@ -317,13 +317,17 @@ message ApplyRequest {
   // equals this value (0 means "the record must not exist"). Otherwise it
   // fails with ABORTED (reason VERSION_MISMATCH).
   optional uint64 expected_version = 4;
+  // Leave the fields out of the response: only the version is sent back,
+  // which is all a client that already holds the values needs.
+  bool omit_fields = 5;
 }
 
 message ApplyResponse {
   // The record's version after this change.
   uint64 version = 1;
   // The new values of the fields this request touched. Unset fields are
-  // absent. Useful to learn the result of an increment.
+  // absent. Useful to learn the result of an increment. None when the
+  // request set omit_fields.
   map<string, Value> fields = 2;
 }
 

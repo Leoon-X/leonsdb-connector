@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Leoon-X
+name: LeonsDBExample
+version: '${version}'
+main: com.leonsdb.example.ExamplePlugin
+api-version: '1.21'
+description: Example plugin showing how to use LeonsDB.
+depend: [LeonsDB]
+commands:
+  stats:
+    description: Show your stats.
+  kill:
+    description: Pretend you got a kill.
+    usage: /kill [count]
+  pay:
+    description: Add or remove coins (saved immediately).
+    usage: /pay <amount>
+  send:
+    description: Send coins to another player (both change, or neither).
+    usage: /send <player> <amount>
+  shout:
+    description: Say something on every server of the network.
+    usage: /shout <message>
+  stash:
+    description: Save your inventory to LeonsDB, or restore it with /stash restore.
+  clan:
+    description: Join a clan (global data shared by all servers).
+    usage: /clan <name>
+  top:
+    description: Show the kills leaderboard.
+  rank:
+    description: Show your rank on the kills leaderboard.
+  history:
+    description: Show the last changes of a player's stats.
+    usage: /history [player]
+    permission: example.staff
+  rollback:
+    description: Turn a player's data back by some minutes (staff).
+    usage: /rollback <player> <minutes> [confirm]
+    permission: example.staff
+permissions:
+  example.staff:
+    description: Staff commands.
+    default: op

@@ -1,0 +1,153 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 Leoon-X
+
+syntax = "proto3";
+
+package leonsdb.v1;
+
+import "leonsdb/v1/data.proto";
+
+option go_package = "github.com/Leoon-X/leonsdb-connector/proto/gen/go/leonsdb/v1;leonsdbv1";
+option java_multiple_files = true;
+option java_package = "com.leonsdb.proto.v1";
+option java_outer_classname = "HistoryProto";
+
+// HistoryService reads records as they were in the past and turns them
+// back.
+//
+// History is kept per record. Writes to a record within a short time (one
+// minute by default) by the same token are merged into one entry; changes
+// to @Transactional fields, transactions and deletes always get their own
+// entry. Old history is merged further, to one entry per hour, and finally
+// removed.
+service HistoryService {
+  // GetAt reads a record as it was at a moment in the past. Fields the
+  // caller may not read are left out.
+  rpc GetAt(GetAtRequest) returns (GetAtResponse);
+
+  // ListHistory lists a record's changes, newest first.
+  rpc ListHistory(ListHistoryRequest) returns (ListHistoryResponse);
+
+  // Rollback turns records back to how they were at a moment in the past.
+  // It is a dry run unless apply is set. A rollback is an ordinary change:
+  // it is part of the history and can itself be rolled back. Requires a
+  // server or admin token.
+  rpc Rollback(RollbackRequest) returns (stream RollbackProgress);
+}
+
+message GetAtRequest {
+  RecordRef ref = 1;
+  // Milliseconds since the Unix epoch.
+  int64 time = 2;
+}
+
+message GetAtResponse {
+  // False if the record did not exist at that time.
+  bool found = 1;
+  Record record = 2;
+  // The moment the result is exact for. When several writes were merged
+  // into one history entry and the requested time falls between them, the
+  // result is the state before that entry: never later than requested, at
+  // most one entry earlier.
+  int64 as_of = 3;
+}
+
+message ListHistoryRequest {
+  RecordRef ref = 1;
+  // At most this many entries; 0 means 50, the maximum is 1000.
+  uint32 limit = 2;
+  // Only entries numbered below this one (for the next page); 0 starts
+  // with the newest.
+  uint64 before_entry = 3;
+  // Only entries with changes after this time (milliseconds); 0 for all.
+  int64 since = 4;
+}
+
+message ListHistoryResponse {
+  repeated HistoryEntry entries = 1;
+  // Pass as before_entry for the next page; 0 when there is none.
+  uint64 next_before_entry = 2;
+  // History before this time (milliseconds) is not available.
+  int64 available_since = 3;
+}
+
+message HistoryEntry {
+  // Entries of a record are numbered from 1, oldest first.
+  uint64 entry = 1;
+  // Time of the first and the last write merged into this entry.
+  int64 first_time = 2;
+  int64 last_time = 3;
+  uint32 writes = 4;
+  // One single write, never merged: its exact time and values are known.
+  bool exact = 5;
+  // Name and id of the token that made the change.
+  string actor = 6;
+  string actor_id = 7;
+  bytes transaction_id = 8;
+  // The record was created or deleted by this entry.
+  bool created = 9;
+  bool deleted = 10;
+  uint64 version_before = 11;
+  uint64 version_after = 12;
+  repeated FieldChange changes = 13;
+  // Old entries of one hour were merged into this one.
+  bool downsampled = 14;
+}
+
+// FieldChange is one field's value before and after. A missing value means
+// the field had none.
+message FieldChange {
+  string field = 1;
+  Value before = 2;
+  Value after = 3;
+}
+
+message RollbackRequest {
+  // Turn back to how things were at this time (milliseconds).
+  int64 to_time = 1;
+
+  // What to roll back. Exactly one of: a record; a player (each of their
+  // records in every player collection, or only in namespace when set); or
+  // a whole collection (namespace and collection set, nothing else).
+  RecordRef record = 2;
+  bytes player = 3;
+  string namespace = 4;
+  string collection = 5;
+
+  // Only these fields; empty means every field.
+  repeated string fields = 6;
+  // Only what this token changed since to_time (its id). Those fields are
+  // set back, which also undoes later changes others made to them.
+  string token_id = 7;
+
+  // False: only report what would change.
+  bool apply = 8;
+}
+
+// RollbackProgress is sent while a rollback runs, and once more at the end
+// with done set.
+message RollbackProgress {
+  uint64 records_checked = 1;
+  // Records that differ from how they were at to_time.
+  uint64 records_to_change = 2;
+  uint64 records_changed = 3;
+  uint64 records_failed = 4;
+  // What changes (or would change), for at most 100 records per message.
+  repeated RecordRollback records = 5;
+  bool done = 6;
+  // Tokens whose changes after to_time are undone, by name.
+  repeated string undone_actors = 7;
+}
+
+message RecordRollback {
+  RecordRef ref = 1;
+  // before is the value now, after the value it is set back to.
+  repeated FieldChange fields = 2;
+  // The record did not exist at to_time and is deleted (global
+  // collections) or emptied (player collections).
+  bool removed = 3;
+  // The record was deleted after to_time and is created again.
+  bool restored = 4;
+  // Why it could not be changed, when it failed.
+  string error = 5;
+}

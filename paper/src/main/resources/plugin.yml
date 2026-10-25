@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Leoon-X
+name: LeonsDB
+version: '${version}'
+main: com.leonsdb.connector.paper.LeonsDBPlugin
+api-version: '1.21'
+description: Connects this server to a LeonsDB database.
+website: https://leonsdb.com
+load: STARTUP

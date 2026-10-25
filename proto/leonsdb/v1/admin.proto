@@ -1,0 +1,153 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 Leoon-X
+
+syntax = "proto3";
+
+package leonsdb.v1;
+
+option go_package = "github.com/Leoon-X/leonsdb-connector/proto/gen/go/leonsdb/v1;leonsdbv1";
+option java_multiple_files = true;
+option java_package = "com.leonsdb.proto.v1";
+option java_outer_classname = "AdminProto";
+
+// AdminService manages access to the server. Every method requires a token
+// with the ADMIN role.
+service AdminService {
+  // CreateToken creates an access token. The secret is returned once and
+  // never stored by the server; only a hash of it is kept.
+  rpc CreateToken(CreateTokenRequest) returns (CreateTokenResponse);
+
+  // ListTokens lists all tokens, without their secrets.
+  rpc ListTokens(ListTokensRequest) returns (ListTokensResponse);
+
+  // RevokeToken deletes a token. Requests using it fail from then on.
+  rpc RevokeToken(RevokeTokenRequest) returns (RevokeTokenResponse);
+
+  // PurgePlayer permanently erases a player's data: their records in every
+  // player collection and all of their history. The player must not be
+  // online. Backups made before keep the data until they are deleted.
+  rpc PurgePlayer(PurgePlayerRequest) returns (PurgePlayerResponse);
+
+  // CreateBackup makes a backup now and returns once it is stored and
+  // verified.
+  rpc CreateBackup(CreateBackupRequest) returns (CreateBackupResponse);
+
+  // ListBackups lists the stored backups, newest first.
+  rpc ListBackups(ListBackupsRequest) returns (ListBackupsResponse);
+}
+
+message PurgePlayerRequest {
+  // The player's UUID, 16 bytes.
+  bytes player = 1;
+}
+
+message PurgePlayerResponse {
+  // Records removed, one per player collection the player had data in.
+  uint32 records = 1;
+  uint64 history_entries = 2;
+  // Entries of the change log that mentioned the player's data.
+  uint64 changes = 3;
+}
+
+message CreateBackupRequest {}
+
+message CreateBackupResponse {
+  Backup backup = 1;
+}
+
+message ListBackupsRequest {}
+
+message ListBackupsResponse {
+  repeated Backup backups = 1;
+}
+
+message Backup {
+  // File name, for example leonsdb-20261024T140000Z.tar.zst.age.
+  string name = 1;
+  // Milliseconds since the Unix epoch.
+  int64 created_at = 2;
+  uint64 size_bytes = 3;
+  bool encrypted = 4;
+  // Where copies are kept: "local", "s3" or both.
+  repeated string locations = 5;
+}
+
+enum Role {
+  ROLE_UNSPECIFIED = 0;
+  // Everything, including managing tokens.
+  ROLE_ADMIN = 1;
+  // Read and write data and create collections. One per Minecraft server.
+  ROLE_SERVER = 2;
+  // Read data only.
+  ROLE_READ_ONLY = 3;
+  // Only what the token's grants allow, for websites, Discord bots and
+  // stores. Cannot create collections or own players.
+  ROLE_API = 4;
+}
+
+// Access is what a grant allows.
+enum Access {
+  ACCESS_UNSPECIFIED = 0;
+  ACCESS_READ = 1;
+  ACCESS_WRITE = 2;
+  ACCESS_READ_WRITE = 3;
+}
+
+// Grant gives an API token access to some collections, and optionally only
+// to some of their fields.
+message Grant {
+  // A namespace name, or "*" for every namespace.
+  string namespace = 1;
+  // A collection name, or "*" for every collection of the namespace.
+  string collection = 2;
+  Access access = 3;
+  // The fields the token may see and change. Empty means every field.
+  // Fields not listed are removed from every record the token reads.
+  repeated string fields = 4;
+}
+
+message Token {
+  // Public identifier, part of the token string.
+  string id = 1;
+  // Human-readable label, for example "lobby-1".
+  string name = 2;
+  Role role = 3;
+  // Creation time in milliseconds since the Unix epoch.
+  int64 created_at = 4;
+  // What a ROLE_API token may access.
+  repeated Grant grants = 5;
+  // Requests per second allowed from each client address; 0 means no limit.
+  uint32 rate_limit = 6;
+}
+
+message CreateTokenRequest {
+  // 1 to 64 characters.
+  string name = 1;
+  Role role = 2;
+  // Required for ROLE_API (at least one), not allowed for other roles.
+  repeated Grant grants = 3;
+  // Requests per second allowed from each client address. 0 means the
+  // default: 20 for ROLE_API, no limit for the other roles.
+  uint32 rate_limit = 4;
+}
+
+message CreateTokenResponse {
+  Token token = 1;
+  // The full token to give to the client. Shown only this once.
+  string secret = 2;
+}
+
+message ListTokensRequest {}
+
+message ListTokensResponse {
+  repeated Token tokens = 1;
+}
+
+message RevokeTokenRequest {
+  string id = 1;
+}
+
+message RevokeTokenResponse {
+  // False if no token had this id.
+  bool existed = 1;
+}

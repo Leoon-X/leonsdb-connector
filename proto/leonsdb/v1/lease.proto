@@ -1,0 +1,188 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 Leoon-X
+
+syntax = "proto3";
+
+package leonsdb.v1;
+
+import "leonsdb/v1/data.proto";
+
+option go_package = "github.com/Leoon-X/leonsdb-connector/proto/gen/go/leonsdb/v1;leonsdbv1";
+option java_multiple_files = true;
+option java_package = "com.leonsdb.proto.v1";
+option java_outer_classname = "LeaseProto";
+
+// LeaseService makes sure only one Minecraft server owns a player's data at
+// a time, which stops server-switch dupes.
+//
+// A connector (one "holder") acquires a lease when a player joins and
+// releases it when they leave. Every acquisition increases the player's
+// epoch, and the server only accepts writes to that player's records that
+// carry the current owner's epoch. Leases expire if not renewed, so a
+// crashed server does not lock players out.
+//
+// When another server wants a player that is still owned (a server
+// switch), the owner is told through Watch to save and release, and the
+// new server's Acquire waits until it has.
+service LeaseService {
+  // Acquire takes ownership of a player, waiting up to wait_ms for the
+  // current owner to hand over. Fails with FAILED_PRECONDITION (reason
+  // OWNED_ELSEWHERE) if the owner does not release in time. Acquiring a
+  // player the holder already owns returns the current epoch.
+  rpc Acquire(AcquireLeaseRequest) returns (AcquireLeaseResponse);
+
+  // Renew extends all leases of a holder. Call it every ttl/3.
+  rpc Renew(RenewLeasesRequest) returns (RenewLeasesResponse);
+
+  // Release gives up ownership of a player, after all its data is saved.
+  rpc Release(ReleaseLeaseRequest) returns (ReleaseLeaseResponse);
+
+  // Watch streams events for a holder: handover requests, lost leases and
+  // requests to take part in other servers' transactions.
+  rpc Watch(WatchLeasesRequest) returns (stream LeaseEvent);
+
+  // Prepared answers a KIND_PREPARE event: this holder reserved the
+  // player's data and says what to write, or refuses.
+  rpc Prepared(PreparedRequest) returns (PreparedResponse);
+
+  // GetTransactionOutcome tells a holder that prepared a write whether the
+  // transaction committed, for when the KIND_OUTCOME event was missed.
+  rpc GetTransactionOutcome(GetTransactionOutcomeRequest) returns (GetTransactionOutcomeResponse);
+}
+
+message AcquireLeaseRequest {
+  // The player's UUID, 16 bytes.
+  bytes player = 1;
+  // Random identifier of the connector instance, generated at its start.
+  string holder_id = 2;
+  // Readable name of the holder, for example the Minecraft server's name.
+  string holder_name = 3;
+  // How long to wait for the current owner to hand over, at most 30000.
+  uint32 wait_ms = 4;
+  // Also read the player's record in each of these player collections
+  // ("namespace.collection") once ownership is granted, so that joining
+  // takes one round trip.
+  repeated string load = 5;
+}
+
+message AcquireLeaseResponse {
+  // Include this epoch in every write to the player's records.
+  uint64 epoch = 1;
+  // Renew before this many milliseconds have passed.
+  uint32 ttl_ms = 2;
+  // The records asked for with load that exist, read after the grant.
+  repeated Record records = 3;
+  // True when the server handled load. Servers before 0.9 ignore it and
+  // return no records; a client must then read the records itself.
+  bool loaded = 4;
+}
+
+message RenewLeasesRequest {
+  string holder_id = 1;
+}
+
+message RenewLeasesResponse {
+  // Players this holder no longer owns (taken over after expiring).
+  repeated bytes lost = 1;
+  // Players another server is waiting for. Also sent through Watch; listed
+  // here too in case an event was missed.
+  repeated bytes handover_requested = 2;
+  uint32 ttl_ms = 3;
+}
+
+message ReleaseLeaseRequest {
+  bytes player = 1;
+  string holder_id = 2;
+  uint64 epoch = 3;
+}
+
+message ReleaseLeaseResponse {
+  // False if the holder did not own the player (any more).
+  bool released = 1;
+}
+
+message WatchLeasesRequest {
+  string holder_id = 1;
+  string holder_name = 2;
+}
+
+message LeaseEvent {
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    // Another server wants this player: save their data and release.
+    KIND_HANDOVER_REQUESTED = 1;
+    // This holder no longer owns the player; stop writing their data.
+    KIND_LOST = 2;
+    // Another server's transaction changes this player. Reserve their
+    // data, apply operations to it and answer with Prepared within two
+    // seconds; until the outcome is known, save nothing else of that record.
+    KIND_PREPARE = 3;
+    // A transaction this holder prepared for committed or was abandoned.
+    KIND_OUTCOME = 4;
+  }
+  Kind kind = 1;
+  bytes player = 2;
+  // Name of the server that asked for the player, if any.
+  string requested_by = 3;
+
+  // For KIND_PREPARE and KIND_OUTCOME: which transaction, and which of its
+  // writes.
+  bytes transaction_id = 4;
+  uint32 write_index = 5;
+  // For KIND_PREPARE: the record and the operations to apply to it.
+  RecordRef ref = 6;
+  repeated Operation operations = 7;
+  // For KIND_PREPARE: conditions to check against the live data first;
+  // refuse with reason CONDITION_FAILED if one does not hold.
+  repeated Condition conditions = 10;
+  // For KIND_OUTCOME.
+  bool committed = 8;
+  // For KIND_OUTCOME when committed: the record's new version.
+  uint64 version = 9;
+  // For KIND_PREPARE and KIND_OUTCOME: identifies this attempt at the
+  // transaction. A retried transaction is prepared again under a new id;
+  // answers and outcomes always refer to one attempt.
+  bytes prepare_id = 11;
+}
+
+message PreparedRequest {
+  string holder_id = 1;
+  bytes transaction_id = 2;
+  uint32 write_index = 3;
+  bytes prepare_id = 10;
+  // False to refuse, with a reason and a message for the other server.
+  bool ok = 4;
+  string refusal_reason = 5;
+  string refusal_message = 6;
+  // When ok: what to write, as this holder would write it itself: its
+  // epoch, the version it has, and operations that bring the stored record
+  // to the holder's live data with the requested operations applied.
+  // Without expected_version (a record this holder does not cache), the
+  // operations apply to the stored record as it is.
+  uint64 epoch = 7;
+  optional uint64 expected_version = 8;
+  repeated Operation operations = 9;
+}
+
+message PreparedResponse {}
+
+message GetTransactionOutcomeRequest {
+  bytes transaction_id = 1;
+  // The attempt this holder prepared.
+  bytes prepare_id = 2;
+}
+
+message GetTransactionOutcomeResponse {
+  enum Outcome {
+    OUTCOME_UNSPECIFIED = 0;
+    // Still being decided: ask again shortly.
+    OUTCOME_PENDING = 1;
+    OUTCOME_COMMITTED = 2;
+    // Not committed, and never will be.
+    OUTCOME_ABORTED = 3;
+  }
+  Outcome outcome = 1;
+  // When committed: the version of each written record after the commit.
+  repeated uint64 versions = 2;
+}
+

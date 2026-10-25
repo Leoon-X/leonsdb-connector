@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 Leoon-X
+
+syntax = "proto3";
+
+package leonsdb.v1;
+
+option go_package = "github.com/Leoon-X/leonsdb-connector/proto/gen/go/leonsdb/v1;leonsdbv1";
+option java_multiple_files = true;
+option java_package = "com.leonsdb.proto.v1";
+option java_outer_classname = "WireProto";
+
+// Messages of the LeonsDB wire protocol, a lean binary protocol over TCP for
+// the calls a Minecraft server makes most (saves, loads, leases). It carries
+// the same request and response messages as gRPC and gives the same results
+// and errors; see docs/wire-protocol.md for the framing.
+
+// First frame a client sends.
+message WireHello {
+  // The wire protocol version the client speaks.
+  uint32 protocol_version = 1;
+  // The API token, as gRPC clients send it in "authorization".
+  string token = 2;
+  // Free-form client name, for logs.
+  string client_name = 3;
+}
+
+// The server's answer to WireHello.
+message WireWelcome {
+  uint32 protocol_version = 1;
+  // Full gRPC names of the calls the connection may use
+  // ("/leonsdb.v1.DataService/Apply"); a request names its call by its
+  // index in this list.
+  repeated string methods = 2;
+  string instance_id = 3;
+  string server_version = 4;
+}
+
+// A failed call, with what gRPC would have returned.
+message WireError {
+  // gRPC status code.
+  uint32 code = 1;
+  string message = 2;
+  // What gRPC sends as trailers, such as "leonsdb-error-reason".
+  map<string, string> trailers = 3;
+}

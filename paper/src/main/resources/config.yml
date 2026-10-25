@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Leoon-X
+#
+# LeonsDB connector settings.
+
+server:
+  # Address of your LeonsDB server.
+  host: 127.0.0.1
+  port: 7420
+  # Use TLS. Required when LeonsDB runs on another machine.
+  tls: false
+  # Access token for this Minecraft server. Create one on the LeonsDB
+  # machine with: leonsdb token create -name <this server> -role server
+  token: ""
+  # How long a single request may take before it fails, in milliseconds.
+  request-timeout-ms: 5000
+
+# How often changes are saved, in ticks (20 ticks = 1 second). Changes are
+# also saved when a player leaves and when the server stops.
+save-interval-ticks: 20
+
+# How long loading a joining player's data may take, in milliseconds.
+# If it takes longer, the player is asked to try again instead of joining
+# with empty data.
+load-timeout-ms: 5000
+
+# Name of this Minecraft server, shown to other servers and in LeonsDB's
+# logs (for example "lobby-1"). Defaults to "paper-<port>".
+server-name: ""
+
+# Only one server at a time may own a player's data. When a player switches
+# servers, the new server asks the old one to save and hand the player over.
+# How long a joining player may wait for that, in milliseconds.
+lease-wait-ms: 10000
+
+# After handing a player over, how long they may stay on this server before
+# being disconnected (normally the proxy has moved them within a second).
+handover-grace-ms: 5000

@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 Leoon-X
+
+syntax = "proto3";
+
+package leonsdb.v1;
+
+option go_package = "github.com/Leoon-X/leonsdb-connector/proto/gen/go/leonsdb/v1;leonsdbv1";
+option java_multiple_files = true;
+option java_package = "com.leonsdb.proto.v1";
+option java_outer_classname = "ServerProto";
+
+// ServerService exposes information about the running LeonsDB server.
+// It never requires authentication so that clients can check version
+// compatibility before they present a token.
+service ServerService {
+  // GetInfo returns the server version and the protocol versions it speaks.
+  rpc GetInfo(GetInfoRequest) returns (GetInfoResponse);
+}
+
+message GetInfoRequest {
+  // The protocol version the client was built against. The server uses it
+  // only for logging; compatibility is decided by the client.
+  uint32 client_protocol_version = 1;
+  // Free-form client name, for example "leonsdb-connector-paper/0.1.0".
+  string client_name = 2;
+}
+
+message GetInfoResponse {
+  // Semantic version of the server binary, for example "0.1.0".
+  string server_version = 1;
+  // Git commit the binary was built from, or "unknown".
+  string build_commit = 2;
+  // Oldest protocol version this server still accepts.
+  uint32 min_protocol_version = 3;
+  // Newest protocol version this server understands.
+  uint32 max_protocol_version = 4;
+  // Random identifier generated on first start and kept for the lifetime
+  // of the data directory. Lets clients detect that they reconnected to a
+  // different database.
+  string instance_id = 5;
+  // TCP port of the wire protocol (docs/wire-protocol.md), on the same
+  // address as gRPC; 0 when it is off.
+  uint32 wire_port = 6;
+}

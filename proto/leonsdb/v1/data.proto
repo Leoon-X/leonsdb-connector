@@ -1,0 +1,550 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 Leoon-X
+
+syntax = "proto3";
+
+package leonsdb.v1;
+
+option go_package = "github.com/Leoon-X/leonsdb-connector/proto/gen/go/leonsdb/v1;leonsdbv1";
+option java_multiple_files = true;
+option java_package = "com.leonsdb.proto.v1";
+option java_outer_classname = "DataProto";
+
+// DataService reads and writes records.
+//
+// Errors use standard gRPC status codes. When a client needs to tell
+// similar errors apart, the response trailer "leonsdb-error-reason" holds a
+// stable machine-readable reason, for example "STALE_EPOCH".
+service DataService {
+  // EnsureCollection creates a collection (and its namespace) if it does
+  // not exist yet, and adds any newly declared fields to its schema.
+  // Calling it again with the same kind and fields is a no-op; calling it
+  // with a different kind fails with FAILED_PRECONDITION.
+  rpc EnsureCollection(EnsureCollectionRequest) returns (EnsureCollectionResponse);
+
+  // ListCollections lists collections, optionally within one namespace.
+  rpc ListCollections(ListCollectionsRequest) returns (ListCollectionsResponse);
+
+  // Get reads one record. A missing record is not an error: the response
+  // has found = false.
+  rpc Get(GetRequest) returns (GetResponse);
+
+  // Apply atomically applies operations to one record, creating the record
+  // if it does not exist. Either all operations are applied or none are.
+  // The server only answers after the change is durably on disk.
+  rpc Apply(ApplyRequest) returns (ApplyResponse);
+
+  // ApplyMany makes several independent Applys in one call, as a Minecraft
+  // server saving many players at once does. Each write is checked as
+  // Apply checks it and succeeds or fails on its own (this is not a
+  // transaction); the ones that succeed are stored together, with one wait
+  // for the disk, and are durable when the call returns. At most 1000
+  // writes, each to a different record.
+  rpc ApplyMany(ApplyManyRequest) returns (ApplyManyResponse);
+
+  // Import stores many records of one collection at once, for moving a
+  // network's data into LeonsDB: each record's fields are set as an Apply
+  // with these set operations would (outside any lease: players online are
+  // refused), with one wait for the disk per call. The change feed gets one
+  // event with missed set instead of a change per record, so readers re-read.
+  // At most 5000 records per call.
+  rpc Import(ImportRequest) returns (ImportResponse);
+
+  // Delete removes one record.
+  rpc Delete(DeleteRequest) returns (DeleteResponse);
+
+  // Scan lists the records of a collection in key order, one page at a
+  // time.
+  rpc Scan(ScanRequest) returns (ScanResponse);
+
+  // Top returns a page of a leaderboard: the records of a collection ordered
+  // by an indexed field. Equal values share a rank (1, 2, 2, 4). Fails with
+  // FAILED_PRECONDITION (NOT_INDEXED) if the field is not indexed, and with
+  // UNAVAILABLE (INDEX_BUILDING) while a new index is being built.
+  rpc Top(TopRequest) returns (TopResponse);
+
+  // Rank returns one record's position on a leaderboard.
+  rpc Rank(RankRequest) returns (RankResponse);
+
+  // Transact changes several records atomically: every write is stored, or
+  // none is. Conditions and expected versions are checked against the
+  // records as they are before the transaction. The server only answers
+  // after the whole transaction is durably on disk.
+  //
+  // When a write is refused, the trailer "leonsdb-write-index" holds its
+  // position (0-based) in the request.
+  //
+  // With a transaction_id, a retried request that already committed is not
+  // applied again; the response says already_committed instead.
+  rpc Transact(TransactRequest) returns (TransactResponse);
+
+  // WatchChanges streams committed changes in commit order, from the log
+  // LeonsDB keeps on disk (24 hours by default). Each event has a sequence
+  // number; to resume after a disconnect, ask for the changes after the
+  // last one received, and none is missed or repeated. The stream stays
+  // open and sends new changes as they are committed.
+  rpc WatchChanges(WatchChangesRequest) returns (stream ChangeEvent);
+}
+
+// ---------------------------------------------------------------------------
+// Values
+
+// Value is one typed field value.
+message Value {
+  oneof kind {
+    // 32-bit signed integer (Java int).
+    int32 int_value = 1;
+    // 64-bit signed integer (Java long).
+    int64 long_value = 2;
+    // 64-bit floating point. NaN and infinities are rejected.
+    double double_value = 3;
+    bool bool_value = 4;
+    // UTF-8 text.
+    string string_value = 5;
+    // A UUID as exactly 16 bytes, most significant byte first.
+    bytes uuid_value = 6;
+    // A point in time, in milliseconds since 1970-01-01T00:00:00Z.
+    int64 timestamp_value = 7;
+    ValueList list_value = 8;
+    ValueMap map_value = 9;
+    MinecraftItem item_value = 10;
+    Location location_value = 11;
+    Inventory inventory_value = 12;
+    // Arbitrary binary data.
+    bytes bytes_value = 13;
+  }
+}
+
+message ValueList {
+  repeated Value values = 1;
+}
+
+message ValueMap {
+  map<string, Value> entries = 1;
+}
+
+// MinecraftItem is an item stack in Minecraft's own format: the bytes from
+// Paper's ItemStack.serializeAsBytes() and the Minecraft data version they
+// were written with, so newer servers can upgrade old items.
+message MinecraftItem {
+  bytes data = 1;
+  int32 data_version = 2;
+}
+
+// Location is a position in a world.
+message Location {
+  string world = 1;
+  double x = 2;
+  double y = 3;
+  double z = 4;
+  float yaw = 5;
+  float pitch = 6;
+}
+
+// Inventory is a fixed-size container. Empty slots are simply absent.
+message Inventory {
+  int32 size = 1;
+  map<int32, MinecraftItem> slots = 2;
+}
+
+// ---------------------------------------------------------------------------
+// Collections and records
+
+enum CollectionKind {
+  COLLECTION_KIND_UNSPECIFIED = 0;
+  // One record per player, keyed by the player's UUID.
+  COLLECTION_KIND_PLAYER = 1;
+  // Records keyed by any string.
+  COLLECTION_KIND_GLOBAL = 2;
+}
+
+message Collection {
+  string namespace = 1;
+  string name = 2;
+  CollectionKind kind = 3;
+  // Creation time in milliseconds since the Unix epoch.
+  int64 created_at = 4;
+  // The fields declared for this collection so far.
+  Schema schema = 5;
+}
+
+// FieldType is the declared type of a field.
+enum FieldType {
+  FIELD_TYPE_UNSPECIFIED = 0;
+  FIELD_TYPE_INT = 1;
+  FIELD_TYPE_LONG = 2;
+  FIELD_TYPE_DOUBLE = 3;
+  FIELD_TYPE_BOOL = 4;
+  FIELD_TYPE_STRING = 5;
+  FIELD_TYPE_UUID = 6;
+  FIELD_TYPE_TIMESTAMP = 7;
+  FIELD_TYPE_LIST = 8;
+  FIELD_TYPE_MAP = 9;
+  FIELD_TYPE_ITEM = 10;
+  FIELD_TYPE_LOCATION = 11;
+  FIELD_TYPE_INVENTORY = 12;
+  FIELD_TYPE_BYTES = 13;
+}
+
+message FieldSchema {
+  string name = 1;
+  FieldType type = 2;
+  // Kept in a sorted index (numeric fields only).
+  bool indexed = 3;
+  // Changes must never be buffered by clients.
+  bool transactional = 4;
+}
+
+// Schema lists the fields of a collection. Declaring a schema is optional.
+// Once a field is declared its type is fixed: writes with another type are
+// rejected, so two versions of a plugin can never corrupt each other's
+// data. New fields can be added at any time; fields a plugin no longer
+// declares keep their data.
+message Schema {
+  repeated FieldSchema fields = 1;
+}
+
+// RecordRef identifies one record.
+message RecordRef {
+  string namespace = 1;
+  string collection = 2;
+  oneof key {
+    // Player UUID as 16 bytes. Only valid in player collections.
+    bytes player = 3;
+    // String key, 1 to 512 bytes of UTF-8. Only valid in global collections.
+    string id = 4;
+  }
+}
+
+message Record {
+  RecordRef ref = 1;
+  map<string, Value> fields = 2;
+  // Increases by one with every change, starting at 1.
+  uint64 version = 3;
+  // Time of the last change in milliseconds since the Unix epoch.
+  int64 updated_at = 4;
+}
+
+// Operation changes one field.
+message Operation {
+  // Field name: starts with a letter, then letters, digits or underscores,
+  // at most 64 characters.
+  string field = 1;
+  oneof op {
+    // Replace the field's value.
+    Value set = 2;
+    // Add to a numeric field. The delta must have the same type as the
+    // field (int, long or double); a missing field starts at zero. Integer
+    // overflow is an error, never a silent wrap-around.
+    Value increment = 3;
+    // Remove the field.
+    Unset unset = 4;
+  }
+}
+
+message Unset {}
+
+// ---------------------------------------------------------------------------
+// Requests and responses
+
+message EnsureCollectionRequest {
+  string namespace = 1;
+  string collection = 2;
+  CollectionKind kind = 3;
+  // Optional. Fields not declared yet are added to the collection's schema;
+  // a field declared with a different type than before fails with
+  // FAILED_PRECONDITION (reason SCHEMA_CONFLICT).
+  Schema schema = 4;
+}
+
+message EnsureCollectionResponse {
+  Collection collection = 1;
+  // True if this call created the collection.
+  bool created = 2;
+}
+
+message ListCollectionsRequest {
+  // Optional: only list collections in this namespace.
+  string namespace = 1;
+}
+
+message ListCollectionsResponse {
+  repeated Collection collections = 1;
+}
+
+message GetRequest {
+  RecordRef ref = 1;
+}
+
+message GetResponse {
+  bool found = 1;
+  // Set when found is true.
+  Record record = 2;
+}
+
+message ApplyRequest {
+  RecordRef ref = 1;
+  // Applied in order. At least one, at most 1000.
+  repeated Operation operations = 2;
+  // Fencing epoch of the writer. A write whose epoch is lower than the
+  // highest epoch already seen for this record is rejected with
+  // FAILED_PRECONDITION (reason STALE_EPOCH). Use 0 until player ownership
+  // leases are in use.
+  uint64 epoch = 3;
+  // If set, the write only succeeds when the record's current version
+  // equals this value (0 means "the record must not exist"). Otherwise it
+  // fails with ABORTED (reason VERSION_MISMATCH).
+  optional uint64 expected_version = 4;
+}
+
+message ApplyResponse {
+  // The record's version after this change.
+  uint64 version = 1;
+  // The new values of the fields this request touched. Unset fields are
+  // absent. Useful to learn the result of an increment.
+  map<string, Value> fields = 2;
+}
+
+message ImportRequest {
+  string namespace = 1;
+  string collection = 2;
+  repeated ImportRecord records = 3;
+}
+
+message ImportRecord {
+  oneof key {
+    bytes player = 1;
+    string id = 2;
+  }
+  map<string, Value> fields = 3;
+}
+
+message ImportResponse {
+  // One per record, in order.
+  repeated ApplyOutcome results = 1;
+}
+
+message ApplyManyRequest {
+  repeated ApplyRequest writes = 1;
+}
+
+message ApplyManyResponse {
+  // One per write, in order.
+  repeated ApplyOutcome results = 1;
+}
+
+// What one write of ApplyMany did.
+message ApplyOutcome {
+  // Set when the write was stored.
+  ApplyResponse response = 1;
+  // Set when it was not: what Apply would have failed with.
+  WriteError error = 2;
+}
+
+message WriteError {
+  // gRPC status code, as Apply would have returned.
+  uint32 code = 1;
+  string message = 2;
+  // The error reason, as Apply sends in the leonsdb-error-reason trailer.
+  string reason = 3;
+  // For rate limits: how long to wait before retrying.
+  int64 retry_after_ms = 4;
+}
+
+message DeleteRequest {
+  RecordRef ref = 1;
+  uint64 epoch = 2;
+  optional uint64 expected_version = 3;
+}
+
+message DeleteResponse {
+  // False if there was nothing to delete.
+  bool existed = 1;
+}
+
+message ScanRequest {
+  string namespace = 1;
+  string collection = 2;
+  // 1 to 1000; 0 means 100.
+  uint32 page_size = 3;
+  // From the previous response; empty for the first page.
+  bytes page_token = 4;
+}
+
+message ScanResponse {
+  repeated Record records = 1;
+  // Empty when there are no more records.
+  bytes next_page_token = 2;
+}
+
+message TopRequest {
+  string namespace = 1;
+  string collection = 2;
+  // An indexed int, long, double or timestamp field.
+  string field = 3;
+  // 1 to 1000; 0 means 10.
+  uint32 limit = 4;
+  // How many entries to skip, for paging.
+  uint32 offset = 5;
+  // Lowest first instead of highest first (for example fastest times).
+  bool ascending = 6;
+  // Also return each entry's full record.
+  bool include_records = 7;
+  // With include_records: only these fields of each record (for example
+  // "name" for a leaderboard page). Empty means every field.
+  repeated string fields = 8;
+}
+
+message RankedEntry {
+  RecordRef ref = 1;
+  Value value = 2;
+  // 1 is the best. Equal values share a rank.
+  uint64 rank = 3;
+  // Set when include_records was requested.
+  Record record = 4;
+}
+
+message TopResponse {
+  repeated RankedEntry entries = 1;
+  // Number of records on the leaderboard (records with a value for the
+  // field).
+  uint64 total = 2;
+}
+
+message RankRequest {
+  RecordRef ref = 1;
+  string field = 2;
+  bool ascending = 3;
+}
+
+message RankResponse {
+  // False if the record does not exist or has no value for the field.
+  bool ranked = 1;
+  uint64 rank = 2;
+  Value value = 3;
+  uint64 total = 4;
+}
+
+// ---------------------------------------------------------------------------
+// Transactions
+
+// Comparison of a field with a value.
+enum Comparison {
+  COMPARISON_UNSPECIFIED = 0;
+  // Equal, or not equal. Any type; int and long compare as numbers.
+  COMPARISON_EQUAL = 1;
+  COMPARISON_NOT_EQUAL = 2;
+  // Ordering: numbers (int, long and double, mixed freely) and strings
+  // (byte order).
+  COMPARISON_LESS = 3;
+  COMPARISON_LESS_OR_EQUAL = 4;
+  COMPARISON_GREATER = 5;
+  COMPARISON_GREATER_OR_EQUAL = 6;
+  // The field has a value / has no value. No value is given.
+  COMPARISON_EXISTS = 7;
+  COMPARISON_MISSING = 8;
+}
+
+// Condition is a requirement on a field of a record. A field without a value
+// fails every comparison except MISSING; a missing record has no fields.
+message Condition {
+  string field = 1;
+  Comparison comparison = 2;
+  Value value = 3;
+}
+
+// TransactionWrite is one record's part of a transaction.
+message TransactionWrite {
+  RecordRef ref = 1;
+  // Applied in order, as in Apply. Empty for a check-only entry, which
+  // changes nothing but whose conditions must still hold.
+  repeated Operation operations = 2;
+  // Remove the record instead. Operations must then be empty.
+  bool delete = 3;
+  // The writer's fencing epoch, as in Apply.
+  uint64 epoch = 4;
+  // As in Apply: the record's current version must equal this (0 means
+  // the record must not exist).
+  optional uint64 expected_version = 5;
+  // Every condition must hold, or the whole transaction is refused with
+  // FAILED_PRECONDITION (reason CONDITION_FAILED).
+  repeated Condition conditions = 6;
+  // For player records: when set and the player is online on a Minecraft
+  // server, that server applies these operations to its live data and
+  // takes part in the transaction. It checks the conditions above against
+  // its live data; operations and expected_version are then not used. This is how a
+  // transaction includes players anywhere on the network. When the player
+  // is offline, the fields above are used as usual.
+  repeated Operation owner_operations = 7;
+}
+
+message TransactRequest {
+  // 1 to 100 writes, each to a different record; at most 1000 operations in
+  // total.
+  repeated TransactionWrite writes = 1;
+  // Optional, 16 random bytes chosen by the client. The server remembers
+  // committed transaction IDs for 24 hours, so a retry after a lost answer
+  // is never applied twice. Reusing an ID for a different transaction
+  // fails with INVALID_ARGUMENT (reason TRANSACTION_ID_REUSED).
+  bytes transaction_id = 2;
+}
+
+message TransactionResult {
+  // The record's version after the transaction. For a deleted record, 0.
+  uint64 version = 1;
+  // New values of the fields this write touched, as in ApplyResponse.
+  // Empty when already_committed is true.
+  map<string, Value> fields = 2;
+  // For delete: whether the record existed.
+  bool existed = 3;
+}
+
+message TransactResponse {
+  // One per write, in request order.
+  repeated TransactionResult results = 1;
+  // True if this transaction ID had already committed; nothing was changed
+  // by this request.
+  bool already_committed = 2;
+}
+
+// ---------------------------------------------------------------------------
+// Change streams
+
+message WatchChangesRequest {
+  // Only changes of this namespace, and of this collection in it. Empty for
+  // every collection the caller may read.
+  string namespace = 1;
+  string collection = 2;
+  // Start after this sequence number, from an earlier event. 0 starts with
+  // the oldest change still kept.
+  uint64 after_sequence = 3;
+  // Start with the changes committed from now on; after_sequence is then
+  // not used.
+  bool from_now = 4;
+}
+
+// ChangeEvent is one committed change to one record.
+message ChangeEvent {
+  // Increases with every change; changes are sent in this order. Numbers
+  // can be skipped (for example a change of a collection the caller may not
+  // read), never reordered.
+  uint64 sequence = 1;
+  RecordRef ref = 2;
+  // The record's version after the change; 0 when it was deleted.
+  uint64 version = 3;
+  // When it was committed, in milliseconds since the Unix epoch.
+  int64 time = 4;
+  bool deleted = 5;
+  // New values of the fields the change set or incremented.
+  map<string, Value> fields = 6;
+  // Fields the change removed.
+  repeated string removed = 7;
+  // Set when the change was part of a transaction with an id.
+  bytes transaction_id = 8;
+  // Set instead of a change when changes were missed, so re-read the data
+  // you follow: on the first event when the changes right after
+  // after_sequence are no longer kept (sequence is then the last one
+  // missed), and when records of the collection in ref were imported
+  // (DataService.Import) without changes of their own.
+  bool missed = 9;
+}

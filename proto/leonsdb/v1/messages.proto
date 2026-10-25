@@ -1,0 +1,60 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 Leoon-X
+
+syntax = "proto3";
+
+package leonsdb.v1;
+
+option go_package = "github.com/Leoon-X/leonsdb-connector/proto/gen/go/leonsdb/v1;leonsdbv1";
+option java_multiple_files = true;
+option java_package = "com.leonsdb.proto.v1";
+option java_outer_classname = "MessagesProto";
+
+// MessageService passes messages between Minecraft servers, websites and
+// bots: network chat, private messages, events. Messages are delivered to
+// whoever is subscribed when they are published and are not stored; a
+// subscriber that is not connected misses them. For data, use records and
+// the change stream instead.
+//
+// A channel is named <namespace>.<name>. API tokens may subscribe to a
+// channel with read access to that namespace and name, as for a
+// collection, and publish to it with write access.
+service MessageService {
+  // Publish sends a message to the channel's current subscribers.
+  rpc Publish(PublishRequest) returns (PublishResponse);
+
+  // Subscribe streams the messages of one or more channels.
+  rpc Subscribe(SubscribeRequest) returns (stream ChannelMessage);
+}
+
+message PublishRequest {
+  // <namespace>.<name>, for example "network.chat".
+  string channel = 1;
+  // The message, at most 64 KiB of UTF-8 text. Send JSON for structured
+  // messages.
+  string text = 2;
+  // Who sent it, for example the Minecraft server's name. Shown to
+  // subscribers; at most 64 characters.
+  string sender = 3;
+}
+
+message PublishResponse {
+  // How many subscribers it was delivered to.
+  uint32 delivered = 1;
+}
+
+message SubscribeRequest {
+  // 1 to 100 channels.
+  repeated string channels = 1;
+}
+
+message ChannelMessage {
+  string channel = 1;
+  string text = 2;
+  string sender = 3;
+  // When it was published, in milliseconds since the Unix epoch.
+  int64 time = 4;
+  // Set instead of a message when this subscriber fell behind and messages
+  // were dropped; text holds how many.
+  bool dropped = 5;
+}

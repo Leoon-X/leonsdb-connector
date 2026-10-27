@@ -15,7 +15,9 @@
 // are delivered to grpc.Trailer call options. Many calls may be in flight
 // at once on one Client; requests that are ready together are sent in one
 // write. Streams of answers to one request (subscriptions) work over it
-// too; streams of requests need gRPC.
+// too; streams of requests need gRPC. A Pool gives each call a connection
+// of its own instead, which costs less for callers that wait for each
+// answer.
 package wireclient
 
 import (
@@ -89,18 +91,19 @@ type result struct {
 // ErrClosed is returned by calls on a closed or broken client.
 var ErrClosed = errors.New("wireclient: connection closed")
 
-// Dial connects and authenticates with token.
-func Dial(ctx context.Context, addr, token string, opts Options) (*Client, error) {
+// handshake connects, authenticates with token and returns the connection,
+// its reader and the server's welcome.
+func handshake(ctx context.Context, addr, token string, opts Options) (net.Conn, *bufio.Reader, *leonsdbv1.WireWelcome, error) {
 	var d net.Dialer
 	nc, err := d.DialContext(ctx, "tcp", addr)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 	if opts.TLS != nil {
 		tc := tls.Client(nc, opts.TLS)
 		if err := tc.HandshakeContext(ctx); err != nil {
 			nc.Close()
-			return nil, err
+			return nil, nil, nil, err
 		}
 		nc = tc
 	}
@@ -111,30 +114,39 @@ func Dial(ctx context.Context, addr, token string, opts Options) (*Client, error
 	hello, _ := proto.Marshal(&leonsdbv1.WireHello{ProtocolVersion: ProtocolVersion, Token: token, ClientName: opts.ClientName})
 	if _, err := nc.Write(frame(frameHello, nil, hello)); err != nil {
 		nc.Close()
-		return nil, err
+		return nil, nil, nil, err
 	}
 	typ, body, err := readFrame(r)
 	if err != nil {
 		nc.Close()
-		return nil, err
+		return nil, nil, nil, err
 	}
 	switch typ {
 	case frameError:
 		nc.Close()
 		var we leonsdbv1.WireError
 		_ = proto.Unmarshal(body[min(4, len(body)):], &we)
-		return nil, status.Error(codes.Code(we.Code), we.Message)
+		return nil, nil, nil, status.Error(codes.Code(we.Code), we.Message)
 	case frameWelcome:
 	default:
 		nc.Close()
-		return nil, fmt.Errorf("wireclient: unexpected frame %d", typ)
+		return nil, nil, nil, fmt.Errorf("wireclient: unexpected frame %d", typ)
 	}
 	var w leonsdbv1.WireWelcome
 	if err := proto.Unmarshal(body, &w); err != nil {
 		nc.Close()
-		return nil, err
+		return nil, nil, nil, err
 	}
 	_ = nc.SetDeadline(time.Time{})
+	return nc, r, &w, nil
+}
+
+// Dial connects and authenticates with token.
+func Dial(ctx context.Context, addr, token string, opts Options) (*Client, error) {
+	nc, r, w, err := handshake(ctx, addr, token, opts)
+	if err != nil {
+		return nil, err
+	}
 	c := &Client{
 		nc: nc, methods: make(map[string]uint16, len(w.Methods)), InstanceID: w.InstanceId,
 		pending: map[uint32]chan result{}, streams: map[uint32]*clientStream{}, done: make(chan struct{}),

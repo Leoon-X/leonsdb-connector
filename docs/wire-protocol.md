@@ -78,7 +78,7 @@ that are running, ends the streams, and closes the connection.
 ## Clients
 
 - The connector (Java) uses it automatically for saves, loads, leases and
-  messages (publishing and subscriptions) when the server offers it, and
+  messages (publishing; subscriptions use gRPC) when the server offers it, and
   gRPC whenever it is not connected. Start the Minecraft server with
   `-Dleonsdb.wire=false` to use only gRPC.
 - Go: `github.com/Leoon-X/leonsdb-connector/proto/wireclient`. A `wireclient.Client` is

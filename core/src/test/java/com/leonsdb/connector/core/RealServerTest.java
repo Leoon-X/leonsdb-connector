@@ -176,7 +176,7 @@ class RealServerTest {
     }
 
     @Test
-    void subscriptionsUseTheWireProtocolToo() throws Exception {
+    void subscriptionsRunOverTheWireProtocolToo() throws Exception {
         try (var listener = client(); var sender = client()) {
             listener.fetchServerInfo().get(5, TimeUnit.SECONDS);
             long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
@@ -187,7 +187,7 @@ class RealServerTest {
             var received = new java.util.concurrent.LinkedBlockingQueue<com.leonsdb.proto.v1.ChannelMessage>();
             var closed = new CompletableFuture<io.grpc.Status>();
             var call = new java.util.concurrent.atomic.AtomicReference<io.grpc.stub.ClientCallStreamObserver<?>>();
-            listener.subscribe(List.of("contract.wire"), new io.grpc.stub.ClientResponseObserver<com.leonsdb.proto.v1.SubscribeRequest, com.leonsdb.proto.v1.ChannelMessage>() {
+            listener.subscribeOverWire(List.of("contract.wire"), new io.grpc.stub.ClientResponseObserver<com.leonsdb.proto.v1.SubscribeRequest, com.leonsdb.proto.v1.ChannelMessage>() {
                 @Override
                 public void beforeStart(io.grpc.stub.ClientCallStreamObserver<com.leonsdb.proto.v1.SubscribeRequest> c) {
                     call.set(c);

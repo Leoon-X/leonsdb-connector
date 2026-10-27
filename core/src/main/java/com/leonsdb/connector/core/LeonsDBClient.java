@@ -100,9 +100,9 @@ public final class LeonsDBClient implements AutoCloseable {
     private final DataServiceGrpc.DataServiceFutureStub data;
     private final LeaseServiceGrpc.LeaseServiceFutureStub leases;
     private final ClientInterceptor[] authInterceptors;
-    // Saves, loads, leases and messages (published and subscribed to) go over
-    // the wire protocol when the server offers it (null: turned off with
-    // -Dleonsdb.wire=false); lease watches use gRPC.
+    // Saves, loads, leases and published messages go over the wire protocol
+    // when the server offers it (null: turned off with -Dleonsdb.wire=false);
+    // subscriptions and lease watches use gRPC.
     private final WireChannel wire;
     // Saves made at the same time go together (ApplyMany).
     private final ApplyBatcher saves;
@@ -415,7 +415,9 @@ public final class LeonsDBClient implements AutoCloseable {
      *                 be able to cancel the stream
      */
     public void subscribe(java.util.List<String> channels, StreamObserver<ChannelMessage> observer) {
-        MessageServiceGrpc.newStub(wire != null ? wire : channel).withInterceptors(authInterceptors)
+        // Over gRPC: on a busy server, subscriptions over the wire protocol
+        // slowed down the publishing of messages (benchmark round d3c).
+        MessageServiceGrpc.newStub(channel).withInterceptors(authInterceptors)
                 .subscribe(SubscribeRequest.newBuilder().addAllChannels(channels).build(), observer);
     }
 
@@ -480,6 +482,13 @@ public final class LeonsDBClient implements AutoCloseable {
                     }
                 });
         return result;
+    }
+
+    // Visible for tests: subscribe over the wire protocol, which serves
+    // streams of answers as well.
+    void subscribeOverWire(java.util.List<String> channels, StreamObserver<ChannelMessage> observer) {
+        MessageServiceGrpc.newStub(wire).withInterceptors(authInterceptors)
+                .subscribe(SubscribeRequest.newBuilder().addAllChannels(channels).build(), observer);
     }
 
     // Visible for tests: whether saves, loads and leases use the wire protocol.

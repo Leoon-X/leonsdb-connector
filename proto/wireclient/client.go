@@ -14,7 +14,8 @@
 // Errors are gRPC status errors, as over gRPC; trailers (the error reason)
 // are delivered to grpc.Trailer call options. Many calls may be in flight
 // at once on one Client; requests that are ready together are sent in one
-// write. Streaming calls are not available: use gRPC for them.
+// write. Streams of answers to one request (subscriptions) work over it
+// too; streams of requests need gRPC.
 package wireclient
 
 import (
@@ -47,6 +48,9 @@ const (
 	frameRequest  = 3
 	frameResponse = 4
 	frameError    = 5
+	frameMessage  = 6
+	frameHeader   = 7
+	frameCancel   = 8
 
 	maxFrame = 16<<20 + 64
 )
@@ -72,6 +76,7 @@ type Client struct {
 	mu      sync.Mutex
 	nextID  uint32
 	pending map[uint32]chan result
+	streams map[uint32]*clientStream
 	err     error // set when the connection is broken
 	done    chan struct{}
 }
@@ -132,7 +137,7 @@ func Dial(ctx context.Context, addr, token string, opts Options) (*Client, error
 	_ = nc.SetDeadline(time.Time{})
 	c := &Client{
 		nc: nc, methods: make(map[string]uint16, len(w.Methods)), InstanceID: w.InstanceId,
-		pending: map[uint32]chan result{}, done: make(chan struct{}),
+		pending: map[uint32]chan result{}, streams: map[uint32]*clientStream{}, done: make(chan struct{}),
 	}
 	c.out = &combiner{w: nc, onFail: func(err error) { c.fail(fmt.Errorf("wireclient: write: %w", err)) }}
 	for i, m := range w.Methods {
@@ -148,17 +153,9 @@ func (c *Client) Invoke(ctx context.Context, method string, args, reply any, opt
 	if !ok {
 		return status.Errorf(codes.Unimplemented, "%s is not available over the wire protocol", method)
 	}
-	req, ok := args.(proto.Message)
-	if !ok {
-		return status.Error(codes.Internal, "wireclient: request is not a protobuf message")
-	}
-	var timeout uint32
-	if dl, ok := ctx.Deadline(); ok {
-		d := time.Until(dl)
-		if d <= 0 {
-			return status.Error(codes.DeadlineExceeded, context.DeadlineExceeded.Error())
-		}
-		timeout = uint32(min(d.Milliseconds()+1, 1<<31))
+	timeout, err := requestTimeout(ctx)
+	if err != nil {
+		return err
 	}
 
 	ch := make(chan result, 1)
@@ -175,16 +172,12 @@ func (c *Client) Invoke(ctx context.Context, method string, args, reply any, opt
 	c.pending[id] = ch
 	c.mu.Unlock()
 
-	hdr := make([]byte, 10, 10)
-	binary.BigEndian.PutUint32(hdr, id)
-	binary.BigEndian.PutUint16(hdr[4:], m)
-	binary.BigEndian.PutUint32(hdr[6:], timeout)
-	payload, err := proto.MarshalOptions{}.MarshalAppend(frameStart(frameRequest, hdr), req)
+	req, err := encodeRequest(id, m, timeout, args)
 	if err != nil {
 		c.forget(id)
-		return status.Errorf(codes.Internal, "wireclient: encode request: %v", err)
+		return err
 	}
-	c.out.send(finish(payload))
+	c.out.send(req)
 
 	select {
 	case res := <-ch:
@@ -230,9 +223,11 @@ func decode(res result, reply any, opts []grpc.CallOption) error {
 	return nil
 }
 
-// NewStream implements grpc.ClientConnInterface; streams need gRPC.
-func (c *Client) NewStream(context.Context, *grpc.StreamDesc, string, ...grpc.CallOption) (grpc.ClientStream, error) {
-	return nil, status.Error(codes.Unimplemented, "streaming calls need gRPC")
+// NewStream implements grpc.ClientConnInterface for streams of answers to
+// one request, such as subscriptions (see stream.go); streams of requests
+// need gRPC.
+func (c *Client) NewStream(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+	return c.newStream(ctx, desc, method, opts)
 }
 
 // Close closes the connection; calls in flight fail.
@@ -274,12 +269,20 @@ func (c *Client) read(r *bufio.Reader) {
 			c.fail(fmt.Errorf("wireclient: %w", err))
 			return
 		}
-		if (typ != frameResponse && typ != frameError) || len(body) < 4 {
+		if typ < frameResponse || typ > frameHeader || len(body) < 4 {
 			c.fail(fmt.Errorf("wireclient: unexpected frame %d", typ))
 			return
 		}
 		id := binary.BigEndian.Uint32(body)
 		c.mu.Lock()
+		if s := c.streams[id]; s != nil {
+			if typ == frameResponse || typ == frameError {
+				delete(c.streams, id)
+			}
+			c.mu.Unlock()
+			s.deliver(typ, body[4:])
+			continue
+		}
 		ch := c.pending[id]
 		delete(c.pending, id)
 		c.mu.Unlock()
@@ -318,4 +321,35 @@ func finish(f []byte) []byte {
 
 func frame(typ byte, hdr, msg []byte) []byte {
 	return finish(append(frameStart(typ, hdr), msg...))
+}
+
+// requestTimeout is what a request tells the server of its deadline, in
+// milliseconds (0: none).
+func requestTimeout(ctx context.Context) (uint32, error) {
+	dl, ok := ctx.Deadline()
+	if !ok {
+		return 0, nil
+	}
+	d := time.Until(dl)
+	if d <= 0 {
+		return 0, status.Error(codes.DeadlineExceeded, context.DeadlineExceeded.Error())
+	}
+	return uint32(min(d.Milliseconds()+1, 1<<31)), nil
+}
+
+// encodeRequest makes the frame of a request.
+func encodeRequest(id uint32, m uint16, timeout uint32, args any) ([]byte, error) {
+	req, ok := args.(proto.Message)
+	if !ok {
+		return nil, status.Error(codes.Internal, "wireclient: request is not a protobuf message")
+	}
+	var hdr [10]byte
+	binary.BigEndian.PutUint32(hdr[:], id)
+	binary.BigEndian.PutUint16(hdr[4:], m)
+	binary.BigEndian.PutUint32(hdr[6:], timeout)
+	payload, err := proto.MarshalOptions{}.MarshalAppend(frameStart(frameRequest, hdr[:]), req)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "wireclient: encode request: %v", err)
+	}
+	return finish(payload), nil
 }

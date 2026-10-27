@@ -45,9 +45,9 @@ import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 
 /**
- * A gRPC channel that sends unary calls over the LeonsDB wire protocol
- * (docs/wire-protocol.md), a lean binary protocol over TCP, and everything
- * else over gRPC.
+ * A gRPC channel that sends unary calls and streams of answers (such as
+ * subscriptions) over the LeonsDB wire protocol (docs/wire-protocol.md), a
+ * lean binary protocol over TCP, and everything else over gRPC.
  *
  * <p>The wire protocol runs the same server handlers as gRPC; it only costs
  * less per call: many calls share one connection, and calls that are ready
@@ -57,7 +57,7 @@ import javax.net.ssl.SSLSocketFactory;
  * <p>Until the wire connection is up, and whenever it is down, calls use
  * gRPC. A call that was sent but whose connection broke before the answer
  * fails with {@code UNAVAILABLE}, as it can over gRPC: it may or may not
- * have run.
+ * have run. A stream whose connection broke fails the same way.
  */
 final class WireChannel extends Channel {
     static final int PROTOCOL_VERSION = 1;
@@ -68,6 +68,9 @@ final class WireChannel extends Channel {
     private static final byte REQUEST = 3;
     private static final byte RESPONSE = 4;
     private static final byte ERROR = 5;
+    private static final byte MESSAGE = 6;
+    private static final byte HEADER = 7;
+    private static final byte CANCEL = 8;
     private static final int MAX_FRAME = (16 << 20) + 64;
     private static final long RETRY_NANOS = TimeUnit.SECONDS.toNanos(5);
     private static final long CONNECT_TIMEOUT_MILLIS = 5_000;
@@ -131,13 +134,17 @@ final class WireChannel extends Channel {
 
     @Override
     public <Q, R> ClientCall<Q, R> newCall(MethodDescriptor<Q, R> method, CallOptions options) {
-        if (method.getType() != MethodDescriptor.MethodType.UNARY) {
+        MethodDescriptor.MethodType type = method.getType();
+        if (type != MethodDescriptor.MethodType.UNARY && type != MethodDescriptor.MethodType.SERVER_STREAMING) {
             return grpc.newCall(method, options);
         }
         Connection c = connectionOrNull();
         Integer id = c == null ? null : c.methods.get("/" + method.getFullMethodName());
         if (id == null) {
             return grpc.newCall(method, options);
+        }
+        if (type == MethodDescriptor.MethodType.SERVER_STREAMING) {
+            return new WireStream<>(c, id, method, options);
         }
         return new WireCall<>(c, id, method, options);
     }
@@ -203,7 +210,7 @@ final class WireChannel extends Channel {
         final WireChannel owner;
         final Socket socket;
         final Map<String, Integer> methods;
-        final Map<Integer, WireCall<?, ?>> pending = new ConcurrentHashMap<>();
+        final Map<Integer, Answered> pending = new ConcurrentHashMap<>();
         final LinkedBlockingQueue<byte[]> out = new LinkedBlockingQueue<>();
         final AtomicInteger ids = new AtomicInteger();
         final AtomicBoolean alive = new AtomicBoolean(true);
@@ -260,7 +267,7 @@ final class WireChannel extends Channel {
             }
         }
 
-        void send(int id, WireCall<?, ?> call, byte[] frame) {
+        void send(int id, Answered call, byte[] frame) {
             pending.put(id, call);
             if (!alive.get()) {
                 pending.remove(id);
@@ -296,11 +303,13 @@ final class WireChannel extends Channel {
             try {
                 while (true) {
                     Frame f = readFrame(in);
-                    if ((f.type != RESPONSE && f.type != ERROR) || f.body.length < 4) {
+                    if (f.type < RESPONSE || f.type > HEADER || f.body.length < 4) {
                         throw new IOException("unexpected frame " + f.type);
                     }
                     int id = ByteBuffer.wrap(f.body).getInt();
-                    WireCall<?, ?> call = pending.remove(id);
+                    // A stream's messages and header leave it running; a
+                    // response or error ends a call or a stream.
+                    Answered call = f.type == MESSAGE || f.type == HEADER ? pending.get(id) : pending.remove(id);
                     if (call != null) {
                         call.answer(f.type, f.body);
                     }
@@ -321,7 +330,7 @@ final class WireChannel extends Channel {
             }
             owner.lost(this, why);
             for (Integer id : pending.keySet()) {
-                WireCall<?, ?> call = pending.remove(id);
+                Answered call = pending.remove(id);
                 if (call != null) {
                     call.finish(Status.UNAVAILABLE.withDescription("LeonsDB wire connection lost: " + why.getMessage())
                             .withCause(why), new Metadata());
@@ -332,7 +341,14 @@ final class WireChannel extends Channel {
 
     // --- one call ----------------------------------------------------------
 
-    private final class WireCall<Q, R> extends ClientCall<Q, R> {
+    /** A call or stream waiting for frames from the server. */
+    private interface Answered {
+        void answer(byte type, byte[] body);
+
+        void finish(Status status, Metadata trailers);
+    }
+
+    private final class WireCall<Q, R> extends ClientCall<Q, R> implements Answered {
         private final Connection conn;
         private final int method;
         private final MethodDescriptor<Q, R> descriptor;
@@ -393,7 +409,7 @@ final class WireChannel extends Channel {
                 }, timeoutMillis, TimeUnit.MILLISECONDS);
             }
             ByteBuffer hdr = ByteBuffer.allocate(10);
-            hdr.putInt(id).putShort((short) method).putInt((int) Math.min(timeoutMillis + 1, Integer.MAX_VALUE));
+            hdr.putInt(id).putShort((short) method).putInt(deadline == null ? 0 : (int) Math.min(timeoutMillis + 1, Integer.MAX_VALUE));
             conn.send(id, this, frame(REQUEST, hdr.array(), request));
         }
 
@@ -403,7 +419,8 @@ final class WireChannel extends Channel {
             finish(Status.CANCELLED.withDescription(message).withCause(cause), new Metadata());
         }
 
-        void answer(byte type, byte[] body) {
+        @Override
+        public void answer(byte type, byte[] body) {
             if (type == RESPONSE) {
                 R response;
                 try {
@@ -434,7 +451,8 @@ final class WireChannel extends Channel {
             finish(Status.fromCodeValue(e.getCode()).withDescription(e.getMessage()), trailers);
         }
 
-        void finish(Status status, Metadata trailers) {
+        @Override
+        public void finish(Status status, Metadata trailers) {
             if (!done.compareAndSet(false, true)) {
                 return;
             }
@@ -445,6 +463,189 @@ final class WireChannel extends Channel {
         private void cancelTimer() {
             if (timer != null) {
                 timer.cancel(false);
+            }
+        }
+    }
+
+    // --- one stream --------------------------------------------------------
+
+    /**
+     * A stream of answers to one request (a subscription). The server sends
+     * a header frame when it has begun, a message frame per answer, and a
+     * response (empty) or error frame at its end; cancelling it sends a
+     * cancel frame. Its listener hears of it in order, one event at a time.
+     */
+    private final class WireStream<Q, R> extends ClientCall<Q, R> implements Answered {
+        private final Connection conn;
+        private final int method;
+        private final MethodDescriptor<Q, R> descriptor;
+        private final CallOptions options;
+        private final AtomicBoolean done = new AtomicBoolean();
+        private final InOrder events = new InOrder(callbacks);
+        private Listener<R> listener;
+        private boolean headersDelivered; // only touched by events
+        private byte[] request;
+        private volatile int id;
+        private ScheduledFuture<?> timer;
+
+        WireStream(Connection conn, int method, MethodDescriptor<Q, R> descriptor, CallOptions options) {
+            this.conn = conn;
+            this.method = method;
+            this.descriptor = descriptor;
+            this.options = options;
+        }
+
+        @Override
+        public void start(Listener<R> listener, Metadata headers) {
+            this.listener = listener;
+        }
+
+        @Override
+        public void request(int numMessages) {
+            // Messages are delivered as they come; the server drops what a
+            // subscriber cannot keep up with, and says how many.
+        }
+
+        @Override
+        public void sendMessage(Q message) {
+            try (InputStream in = descriptor.streamRequest(message)) {
+                request = in.readAllBytes();
+            } catch (IOException e) {
+                finish(Status.INTERNAL.withDescription("could not encode the request").withCause(e), new Metadata());
+            }
+        }
+
+        @Override
+        public void halfClose() {
+            if (done.get()) {
+                return;
+            }
+            if (request == null) {
+                finish(Status.INTERNAL.withDescription("no request"), new Metadata());
+                return;
+            }
+            int sid = conn.ids.incrementAndGet();
+            long timeoutMillis = 0;
+            Deadline deadline = options.getDeadline();
+            if (deadline != null) {
+                timeoutMillis = deadline.timeRemaining(TimeUnit.MILLISECONDS);
+                if (timeoutMillis <= 0) {
+                    finish(Status.DEADLINE_EXCEEDED.withDescription("deadline exceeded before sending"), new Metadata());
+                    return;
+                }
+                timer = timers.schedule(() -> cancelWith(Status.DEADLINE_EXCEEDED.withDescription("the stream's deadline passed")),
+                        timeoutMillis, TimeUnit.MILLISECONDS);
+            }
+            id = sid;
+            ByteBuffer hdr = ByteBuffer.allocate(10);
+            hdr.putInt(sid).putShort((short) method).putInt(deadline == null ? 0 : (int) Math.min(timeoutMillis + 1, Integer.MAX_VALUE));
+            conn.send(sid, this, frame(REQUEST, hdr.array(), request));
+        }
+
+        @Override
+        public void cancel(String message, Throwable cause) {
+            cancelWith(Status.CANCELLED.withDescription(message).withCause(cause));
+        }
+
+        private void cancelWith(Status status) {
+            int sid = id;
+            if (sid != 0 && conn.pending.remove(sid) != null && conn.alive.get()) {
+                conn.out.add(frame(CANCEL, ByteBuffer.allocate(4).putInt(sid).array(), new byte[0]));
+            }
+            finish(status, new Metadata());
+        }
+
+        @Override
+        public void answer(byte type, byte[] body) {
+            switch (type) {
+                case HEADER -> events.execute(this::deliverHeaders);
+                case MESSAGE -> {
+                    R message;
+                    try {
+                        message = descriptor.parseResponse(new ByteArrayInputStream(body, 4, body.length - 4));
+                    } catch (RuntimeException e) {
+                        cancelWith(Status.INTERNAL.withDescription("malformed message").withCause(e));
+                        return;
+                    }
+                    events.execute(() -> {
+                        if (!done.get()) {
+                            deliverHeaders();
+                            listener.onMessage(message);
+                        }
+                    });
+                }
+                case RESPONSE -> finish(Status.OK, new Metadata());
+                default -> {
+                    WireError e;
+                    try {
+                        e = WireError.parseFrom(ByteBuffer.wrap(body, 4, body.length - 4));
+                    } catch (InvalidProtocolBufferException ex) {
+                        finish(Status.INTERNAL.withDescription("malformed error").withCause(ex), new Metadata());
+                        return;
+                    }
+                    Metadata trailers = new Metadata();
+                    e.getTrailersMap().forEach((k, v) -> trailers.put(Metadata.Key.of(k, Metadata.ASCII_STRING_MARSHALLER), v));
+                    finish(Status.fromCodeValue(e.getCode()).withDescription(e.getMessage()), trailers);
+                }
+            }
+        }
+
+        private void deliverHeaders() {
+            if (!headersDelivered) {
+                headersDelivered = true;
+                listener.onHeaders(new Metadata());
+            }
+        }
+
+        @Override
+        public void finish(Status status, Metadata trailers) {
+            if (!done.compareAndSet(false, true)) {
+                return;
+            }
+            if (timer != null) {
+                timer.cancel(false);
+            }
+            events.execute(() -> listener.onClose(status, trailers));
+        }
+    }
+
+    /** Runs tasks on an executor one at a time, in the order given. */
+    private static final class InOrder implements Executor {
+        private final Executor pool;
+        private final java.util.concurrent.ConcurrentLinkedQueue<Runnable> tasks = new java.util.concurrent.ConcurrentLinkedQueue<>();
+        private final AtomicBoolean running = new AtomicBoolean();
+
+        InOrder(Executor pool) {
+            this.pool = pool;
+        }
+
+        @Override
+        public void execute(Runnable task) {
+            tasks.add(task);
+            schedule();
+        }
+
+        private void schedule() {
+            if (running.compareAndSet(false, true)) {
+                pool.execute(this::drain);
+            }
+        }
+
+        private void drain() {
+            try {
+                Runnable task;
+                while ((task = tasks.poll()) != null) {
+                    try {
+                        task.run();
+                    } catch (RuntimeException e) {
+                        LOG.log(Level.WARNING, "A LeonsDB stream listener failed", e);
+                    }
+                }
+            } finally {
+                running.set(false);
+                if (!tasks.isEmpty()) {
+                    schedule();
+                }
             }
         }
     }

@@ -176,6 +176,73 @@ class RealServerTest {
     }
 
     @Test
+    void subscriptionsUseTheWireProtocolToo() throws Exception {
+        try (var listener = client(); var sender = client()) {
+            listener.fetchServerInfo().get(5, TimeUnit.SECONDS);
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (!listener.usesWireProtocol()) {
+                assertTrue(System.nanoTime() < deadline, "the wire protocol did not connect");
+                Thread.sleep(20);
+            }
+            var received = new java.util.concurrent.LinkedBlockingQueue<com.leonsdb.proto.v1.ChannelMessage>();
+            var closed = new CompletableFuture<io.grpc.Status>();
+            var call = new java.util.concurrent.atomic.AtomicReference<io.grpc.stub.ClientCallStreamObserver<?>>();
+            listener.subscribe(List.of("contract.wire"), new io.grpc.stub.ClientResponseObserver<com.leonsdb.proto.v1.SubscribeRequest, com.leonsdb.proto.v1.ChannelMessage>() {
+                @Override
+                public void beforeStart(io.grpc.stub.ClientCallStreamObserver<com.leonsdb.proto.v1.SubscribeRequest> c) {
+                    call.set(c);
+                }
+
+                @Override
+                public void onNext(com.leonsdb.proto.v1.ChannelMessage m) {
+                    received.add(m);
+                }
+
+                @Override
+                public void onError(Throwable t) {
+                    closed.complete(io.grpc.Status.fromThrowable(t));
+                }
+
+                @Override
+                public void onCompleted() {
+                    closed.complete(io.grpc.Status.OK);
+                }
+            });
+            eventually(() -> {
+                try {
+                    return sender.publish("contract.wire", "ping", "lobby").get(5, TimeUnit.SECONDS).getDelivered() == 1;
+                } catch (Exception e) {
+                    return false;
+                }
+            }, "subscribed");
+            for (int i = 0; i < 100; i++) {
+                sender.publish("contract.wire", "m" + i, "lobby").get(5, TimeUnit.SECONDS);
+            }
+            // In order, after the pings.
+            int next = 0;
+            while (next < 100) {
+                var m = received.poll(5, TimeUnit.SECONDS);
+                assertTrue(m != null, "message m" + next + " did not arrive");
+                if (!m.getText().equals("ping")) {
+                    assertEquals("m" + next, m.getText());
+                    assertEquals("lobby", m.getSender());
+                    next++;
+                }
+            }
+            call.get().cancel("done", null);
+            assertEquals(io.grpc.Status.Code.CANCELLED, closed.get(5, TimeUnit.SECONDS).getCode());
+            eventually(() -> {
+                try {
+                    return sender.publish("contract.wire", "x", "lobby").get(5, TimeUnit.SECONDS).getDelivered() == 0;
+                } catch (Exception e) {
+                    return false;
+                }
+            }, "the cancelled subscription ended on the server");
+            assertTrue(listener.usesWireProtocol());
+        }
+    }
+
+    @Test
     void manySavesAtOnceAreBatchedAndEachGetsItsResult() throws Exception {
         try (var client = client()) {
             client.ensureCollection("contract", "batch", com.leonsdb.proto.v1.CollectionKind.COLLECTION_KIND_GLOBAL,

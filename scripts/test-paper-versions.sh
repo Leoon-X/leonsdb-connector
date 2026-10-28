@@ -10,9 +10,10 @@
 #
 #   scripts/test-paper-versions.sh <LeonsDB-Paper.jar> paper:1.21.11 folia:1.21.11 ...
 #
-# Needs java (21 or newer, as the versions require), python3 and about 1 GB
-# of memory. Servers listen on 127.0.0.1 only. Exits non-zero if any
-# version fails.
+# Needs python3, about 1 GB of memory and the Java the versions are made
+# for, given as JAVA: 21 for 1.21.x (Paper 1.21's bundled profiler crashes
+# on Java 25), 25 for 26.x. Servers listen on 127.0.0.1 only. Exits
+# non-zero if any version fails.
 set -uo pipefail
 
 jar=$(realpath "$1"); shift
@@ -54,8 +55,8 @@ for target in "$@"; do
   printf 'server:\n  host: 127.0.0.1\n  port: 1\n  token: "version-test"\n' > "$dir/plugins/LeonsDB/config.yml"
 
   mkfifo "$dir/console"
-  (cd "$dir" && exec "$java" -Xms256m -Xmx512m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 \
-      -jar server.jar --nogui < console > out.log 2>&1) &
+  # shellcheck disable=SC2086 # the flags are separate words
+  (cd "$dir" && exec "$java" $flags -jar server.jar --nogui < console > out.log 2>&1) &
   pid=$!
   exec 3> "$dir/console" # keeps the console open until we send "stop"
 

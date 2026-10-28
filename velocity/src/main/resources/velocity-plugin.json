@@ -1,0 +1,10 @@
+{
+  "id": "leonsdb",
+  "name": "LeonsDB",
+  "version": "${version}",
+  "description": "Tells LeonsDB which server a player is about to join, so server switches wait less.",
+  "url": "https://leonsdb.com",
+  "authors": ["Leoon-X"],
+  "dependencies": [],
+  "main": "com.leonsdb.connector.velocity.LeonsDBVelocity"
+}

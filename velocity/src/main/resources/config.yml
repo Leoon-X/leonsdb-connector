@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Leoon-X
+#
+# LeonsDB proxy settings.
+#
+# Just before this proxy moves a player to another server, it tells LeonsDB,
+# so the server the player is on saves them at once and the switch waits
+# less. The proxy never reads or writes player data, and a hint never holds
+# up a connection: if LeonsDB is unreachable, players switch as before.
+
+# Send hints. Set to false to turn the plugin off.
+hints: true
+
+server:
+  # Address of your LeonsDB server.
+  host: 127.0.0.1
+  port: 7420
+  # Use TLS. Required when LeonsDB runs on another machine.
+  tls: false
+  # A proxy token: it can only send hints. Create one on the LeonsDB
+  # machine with: leonsdb token create -name <this proxy> -role proxy
+  token: ""
+  # How long a hint may take before it is given up, in milliseconds.
+  request-timeout-ms: 2000
+
+# Tip: give each server's LeonsDB plugin the same server-name as this
+# proxy's name for it (in velocity.toml), so LeonsDB's logs name the server
+# a player is switching to.

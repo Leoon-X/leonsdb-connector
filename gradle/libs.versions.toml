@@ -7,6 +7,9 @@ protobuf = "4.36.2"
 protoc = "4.36.2"
 junit = "6.1.3"
 paper = "1.21.11-R0.1-SNAPSHOT"
+# The Velocity API the proxy plugin compiles against: the oldest it
+# supports (Java 17 bytecode), so it also loads on proxies on Java 21.
+velocity = "3.4.0"
 
 [libraries]
 grpc-api = { module = "io.grpc:grpc-api", version.ref = "grpc" }
@@ -19,6 +22,7 @@ protobuf-java = { module = "com.google.protobuf:protobuf-java", version.ref = "p
 protoc = { module = "com.google.protobuf:protoc", version.ref = "protoc" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 paper-api = { module = "io.papermc.paper:paper-api", version.ref = "paper" }
+velocity-api = { module = "com.velocitypowered:velocity-api", version.ref = "velocity" }
 
 [plugins]
 protobuf = { id = "com.google.protobuf", version = "0.10.0" }

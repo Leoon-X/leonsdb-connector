@@ -3,19 +3,20 @@
 
 rootProject.name = "leonsdb-connector"
 
-include("protocol", "api", "core", "paper", "example")
+include("protocol", "api", "core", "paper", "velocity", "example")
 
 project(":protocol").name = "leonsdb-protocol"
 project(":api").name = "leonsdb-api"
 project(":core").name = "leonsdb-core"
 project(":paper").name = "leonsdb-paper"
+project(":velocity").name = "leonsdb-velocity"
 project(":example").name = "leonsdb-example"
 
 dependencyResolutionManagement {
     repositories {
         mavenCentral()
         maven("https://repo.papermc.io/repository/maven-public/") {
-            content { includeGroupAndSubgroups("io.papermc") ; includeGroup("net.md-5") ; includeGroup("com.mojang") ; includeGroupAndSubgroups("net.kyori") }
+            content { includeGroupAndSubgroups("io.papermc") ; includeGroup("net.md-5") ; includeGroup("com.mojang") ; includeGroupAndSubgroups("net.kyori") ; includeGroup("com.velocitypowered") }
         }
     }
 }

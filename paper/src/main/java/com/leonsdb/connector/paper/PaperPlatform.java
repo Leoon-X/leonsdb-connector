@@ -21,9 +21,33 @@ import org.bukkit.plugin.Plugin;
 final class PaperPlatform implements Platform {
 
     private final Plugin plugin;
+    // Experiment: Paper's own task queue, which the main thread works through
+    // as soon as it is idle between ticks (as it does for incoming packets).
+    private final java.util.concurrent.Executor idle = idleExecutor();
 
     PaperPlatform(Plugin plugin) {
         this.plugin = plugin;
+        if (idle != null) {
+            plugin.getLogger().info("EXPERIMENT: running player tasks on the server's idle-time queue");
+        }
+    }
+
+    private static java.util.concurrent.Executor idleExecutor() {
+        if (!Boolean.getBoolean("leonsdb.experiment.idle")) {
+            return null;
+        }
+        try {
+            Class.forName("io.papermc.paper.threadedregions.RegionizedServer");
+            return null; // Folia
+        } catch (ClassNotFoundException e) {
+            // Paper
+        }
+        try {
+            Object server = Bukkit.getServer().getClass().getMethod("getServer").invoke(Bukkit.getServer());
+            return server instanceof java.util.concurrent.Executor ex ? ex : null;
+        } catch (ReflectiveOperationException e) {
+            return null;
+        }
     }
 
     @Override
@@ -53,6 +77,10 @@ final class PaperPlatform implements Platform {
 
     @Override
     public void runForPlayer(UUID uuid, Runnable task, Duration delay) {
+        if (idle != null && delay.isZero()) {
+            idle.execute(task);
+            return;
+        }
         Player player = Bukkit.getPlayer(uuid);
         if (player == null) {
             runOnMainThread(task, delay);

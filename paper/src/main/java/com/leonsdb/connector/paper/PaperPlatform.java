@@ -24,11 +24,15 @@ final class PaperPlatform implements Platform {
     // Experiment: Paper's own task queue, which the main thread works through
     // as soon as it is idle between ticks (as it does for incoming packets).
     private final java.util.concurrent.Executor idle = idleExecutor();
+    private static final boolean FOLIA_REGION = Boolean.getBoolean("leonsdb.experiment.region");
 
     PaperPlatform(Plugin plugin) {
         this.plugin = plugin;
         if (idle != null) {
             plugin.getLogger().info("EXPERIMENT: running player tasks on the server's idle-time queue");
+        }
+        if (FOLIA_REGION) {
+            plugin.getLogger().info("EXPERIMENT: running player tasks on the region task queue");
         }
     }
 
@@ -84,6 +88,19 @@ final class PaperPlatform implements Platform {
         Player player = Bukkit.getPlayer(uuid);
         if (player == null) {
             runOnMainThread(task, delay);
+            return;
+        }
+        if (FOLIA_REGION && delay.isZero()) {
+            // Experiment: the region's task queue instead of the entity's tick.
+            // The task only runs where the player's data may be touched.
+            Runnable checked = () -> {
+                if (Bukkit.isOwnedByCurrentRegion(player)) {
+                    task.run();
+                } else {
+                    player.getScheduler().execute(plugin, task, () -> runOnMainThread(task, Duration.ZERO), 1);
+                }
+            };
+            Bukkit.getRegionScheduler().execute(plugin, player.getLocation(), checked);
             return;
         }
         try {

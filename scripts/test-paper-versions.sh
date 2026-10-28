@@ -17,6 +17,9 @@ set -uo pipefail
 
 jar=$(realpath "$1"); shift
 java=${JAVA:-java}
+# Heap and everything else bounded, so a server fits in about 1 GB.
+flags=${JVM_FLAGS:--Xms256m -Xmx512m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=48m -XX:MaxDirectMemorySize=64m -Xss512k}
+trap "" PIPE # a server that died must not end the test of the others
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 failed=0
@@ -61,7 +64,7 @@ for target in "$@"; do
     kill -0 $pid 2>/dev/null || break
     sleep 1
   done
-  echo stop >&3
+  kill -0 $pid 2>/dev/null && echo stop >&3
   for _ in $(seq 1 60); do kill -0 $pid 2>/dev/null || break; sleep 1; done
   kill -0 $pid 2>/dev/null && { kill $pid; wait $pid 2>/dev/null; }
   exec 3>&-

@@ -97,6 +97,12 @@ public final class LeonsDBClient implements AutoCloseable {
             Metadata.Key.of("leonsdb-write-index", Metadata.ASCII_STRING_MARSHALLER);
 
     private final ManagedChannel channel;
+    // The channel's threads, ours rather than gRPC's shared ones, so close()
+    // can wait until they have ended: a plugin's classes are gone once it is
+    // disabled, and a thread still running then fails to load any. Null for
+    // channels made by tests.
+    private volatile io.grpc.netty.shaded.io.netty.channel.EventLoopGroup eventLoop;
+    private volatile java.util.concurrent.ExecutorService callbacks;
     private final ConnectionSettings settings;
     private final String clientName;
     private final DataServiceGrpc.DataServiceFutureStub data;
@@ -119,7 +125,15 @@ public final class LeonsDBClient implements AutoCloseable {
      * @return the client
      */
     public static LeonsDBClient connect(ConnectionSettings settings, String clientName) {
+        var eventLoop = new io.grpc.netty.shaded.io.netty.channel.MultiThreadIoEventLoopGroup(2,
+                new io.grpc.netty.shaded.io.netty.util.concurrent.DefaultThreadFactory("leonsdb-grpc", true),
+                io.grpc.netty.shaded.io.netty.channel.nio.NioIoHandler.newFactory());
+        var callbacks = java.util.concurrent.Executors.newCachedThreadPool(
+                new io.grpc.netty.shaded.io.netty.util.concurrent.DefaultThreadFactory("leonsdb-grpc-callback", true));
         var builder = NettyChannelBuilder.forAddress(settings.host(), settings.port())
+                .eventLoopGroup(eventLoop)
+                .channelType(io.grpc.netty.shaded.io.netty.channel.socket.nio.NioSocketChannel.class)
+                .executor(callbacks)
                 .keepAliveTime(30, TimeUnit.SECONDS)
                 .keepAliveTimeout(10, TimeUnit.SECONDS)
                 .keepAliveWithoutCalls(true);
@@ -128,7 +142,10 @@ public final class LeonsDBClient implements AutoCloseable {
         } else {
             builder.usePlaintext();
         }
-        return new LeonsDBClient(builder.build(), settings, clientName);
+        var client = new LeonsDBClient(builder.build(), settings, clientName);
+        client.eventLoop = eventLoop;
+        client.callbacks = callbacks;
+        return client;
     }
 
     // Visible for tests, which pass an in-process channel.
@@ -528,9 +545,25 @@ public final class LeonsDBClient implements AutoCloseable {
             if (!channel.awaitTermination(5, TimeUnit.SECONDS)) {
                 channel.shutdownNow();
             }
+            stopThreads(5);
         } catch (InterruptedException e) {
             channel.shutdownNow();
             Thread.currentThread().interrupt();
+        }
+    }
+
+    /** Ends the channel's threads, waiting up to the given seconds for each kind. */
+    private void stopThreads(long seconds) throws InterruptedException {
+        var loop = eventLoop;
+        if (loop != null) {
+            loop.shutdownGracefully(0, seconds, TimeUnit.SECONDS).await(seconds, TimeUnit.SECONDS);
+        }
+        var cb = callbacks;
+        if (cb != null) {
+            cb.shutdown();
+            if (!cb.awaitTermination(seconds, TimeUnit.SECONDS)) {
+                cb.shutdownNow();
+            }
         }
     }
 
@@ -543,6 +576,11 @@ public final class LeonsDBClient implements AutoCloseable {
             wire.shutdown();
         }
         channel.shutdownNow();
+        try {
+            stopThreads(0);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private DataServiceGrpc.DataServiceFutureStub stub() {

@@ -6,6 +6,7 @@ main: com.leonsdb.example.ExamplePlugin
 api-version: '1.21'
 description: Example plugin showing how to use LeonsDB.
 depend: [LeonsDB]
+folia-supported: true
 commands:
   stats:
     description: Show your stats.

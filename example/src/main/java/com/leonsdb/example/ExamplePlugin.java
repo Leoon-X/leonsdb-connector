@@ -84,8 +84,9 @@ public final class ExamplePlugin extends JavaPlugin implements Listener {
                 // Money: saved right away; we only confirm once it is stored.
                 LeonsDB.player(player.getUniqueId())
                         .update(Stats.class, s -> s.coins += amount)
-                        .whenComplete((ok, err) -> Bukkit.getScheduler().runTask(this, () -> player.sendMessage(
-                                err == null ? "coins=" + stats.coins + " (saved)" : "Not confirmed yet: " + err.getMessage())));
+                        // Back on the player's thread (Folia: their region's) to read their data.
+                        .whenComplete((ok, err) -> player.getScheduler().run(this, t -> player.sendMessage(
+                                err == null ? "coins=" + stats.coins + " (saved)" : "Not confirmed yet: " + err.getMessage()), null));
             }
 
             case "send" -> {
@@ -106,8 +107,9 @@ public final class ExamplePlugin extends JavaPlugin implements Listener {
                         })
                         .update(target.getUniqueId(), Stats.class, s -> s.coins += amount)
                         .commit()
-                        // Completes on the main thread, with the cached data updated.
-                        .whenComplete((ok, err) -> {
+                        // Completes with the cached data updated; read it on the
+                        // player's thread (Folia: their region's).
+                        .whenComplete((ok, err) -> player.getScheduler().run(this, t -> {
                             Throwable cause = err instanceof CompletionException && err.getCause() != null ? err.getCause() : err;
                             if (cause == null) {
                                 player.sendMessage("Sent " + amount + " coins to " + target.getName() + "; you have " + stats(player).coins);
@@ -116,7 +118,7 @@ public final class ExamplePlugin extends JavaPlugin implements Listener {
                             } else {
                                 player.sendMessage("Not sent: " + cause.getMessage());
                             }
-                        });
+                        }, null));
             }
 
             case "shout" -> LeonsDB.channel("example.chat").publish(player.getName() + ": " + String.join(" ", args));
@@ -142,13 +144,13 @@ public final class ExamplePlugin extends JavaPlugin implements Listener {
                     if (!clan.members.contains(player.getUniqueId())) {
                         clan.members.add(player.getUniqueId());
                     }
-                }).whenComplete((clan, err) -> Bukkit.getScheduler().runTask(this, () -> player.sendMessage(
+                }).whenComplete((clan, err) -> player.getScheduler().run(this, t -> player.sendMessage(
                         err == null ? "Clan " + name + " now has " + clan.members.size() + " member(s)"
-                                : "Could not join: " + err.getMessage())));
+                                : "Could not join: " + err.getMessage()), null));
             }
 
             case "top" -> LeonsDB.leaderboard(Stats.class, "kills").top(5).whenComplete((top, err) ->
-                    Bukkit.getScheduler().runTask(this, () -> {
+                    player.getScheduler().run(this, t -> {
                         if (err != null) {
                             player.sendMessage("Leaderboard unavailable: " + err.getMessage());
                             return;
@@ -157,16 +159,16 @@ public final class ExamplePlugin extends JavaPlugin implements Listener {
                         for (var entry : top) {
                             player.sendMessage("#" + entry.rank() + " " + entry.data().name + " - " + entry.value());
                         }
-                    }));
+                    }, null));
 
             case "rank" -> {
                 // Save first so the rank includes this player's latest kills.
                 var handle = LeonsDB.player(player.getUniqueId());
                 handle.save()
                         .thenCompose(ok -> LeonsDB.leaderboard(Stats.class, "kills").rankOf(player.getUniqueId()))
-                        .whenComplete((rank, err) -> Bukkit.getScheduler().runTask(this, () -> player.sendMessage(
+                        .whenComplete((rank, err) -> player.getScheduler().run(this, t -> player.sendMessage(
                                 err != null ? "Rank unavailable: " + err.getMessage()
-                                        : rank.isPresent() ? "Your rank: #" + rank.getAsLong() : "You are not ranked yet")));
+                                        : rank.isPresent() ? "Your rank: #" + rank.getAsLong() : "You are not ranked yet"), null));
             }
 
             case "history" -> {

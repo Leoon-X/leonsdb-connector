@@ -133,7 +133,14 @@ public final class LeonsDBClient implements AutoCloseable {
         var builder = NettyChannelBuilder.forAddress(settings.host(), settings.port())
                 .eventLoopGroup(eventLoop)
                 .channelType(io.grpc.netty.shaded.io.netty.channel.socket.nio.NioSocketChannel.class)
-                .executor(callbacks)
+                // After close(), a late call fails at once on the caller's thread.
+                .executor(task -> {
+                    try {
+                        callbacks.execute(task);
+                    } catch (java.util.concurrent.RejectedExecutionException closed) {
+                        task.run();
+                    }
+                })
                 .keepAliveTime(30, TimeUnit.SECONDS)
                 .keepAliveTimeout(10, TimeUnit.SECONDS)
                 .keepAliveWithoutCalls(true);

@@ -45,6 +45,12 @@ class ClientShutdownTest {
             assertFalse(clientThreads().isEmpty(), "the client has threads while open");
             client.close();
             assertEquals(List.of(), clientThreads(), "threads still running after close()");
+
+            // A call made after close() (a late retry) fails; it does not throw.
+            var late = client.fetchServerInfo();
+            var e = org.junit.jupiter.api.Assertions.assertThrows(java.util.concurrent.ExecutionException.class,
+                    () -> late.get(5, TimeUnit.SECONDS));
+            assertFalse(e.getCause() instanceof java.util.concurrent.RejectedExecutionException, e.toString());
         } finally {
             System.clearProperty("leonsdb.wire");
         }

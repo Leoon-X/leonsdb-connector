@@ -48,6 +48,14 @@ service LeaseService {
   // GetTransactionOutcome tells a holder that prepared a write whether the
   // transaction committed, for when the KIND_OUTCOME event was missed.
   rpc GetTransactionOutcome(GetTransactionOutcomeRequest) returns (GetTransactionOutcomeResponse);
+
+  // Expect says a player is about to join another server, so the switch
+  // waits less. A proxy sends it just before it moves the player. The
+  // owner, if any, is told with KIND_SWITCH_EXPECTED to save the player
+  // now, and the player's records are read into memory. Ownership does not
+  // change: the owner keeps the player, and keeps saving, until the new
+  // server asks for them, so a switch that fails loses nothing.
+  rpc Expect(ExpectRequest) returns (ExpectResponse);
 }
 
 message AcquireLeaseRequest {
@@ -119,6 +127,10 @@ message LeaseEvent {
     KIND_PREPARE = 3;
     // A transaction this holder prepared for committed or was abandoned.
     KIND_OUTCOME = 4;
+    // The player is about to switch to the server named in requested_by
+    // (see Expect). Save their changes now, so the handover that follows
+    // has little left to write. Keep the player: this is only a hint.
+    KIND_SWITCH_EXPECTED = 5;
   }
   Kind kind = 1;
   bytes player = 2;
@@ -186,3 +198,16 @@ message GetTransactionOutcomeResponse {
   repeated uint64 versions = 2;
 }
 
+
+message ExpectRequest {
+  // The player's UUID, 16 bytes.
+  bytes player = 1;
+  // Name of the server the player is about to join, as its connector
+  // calls itself (server-name); empty for a first join.
+  string target = 2;
+}
+
+message ExpectResponse {
+  // True if a server owned the player and was told.
+  bool owner_told = 1;
+}

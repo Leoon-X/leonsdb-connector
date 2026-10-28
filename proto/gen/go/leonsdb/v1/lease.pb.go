@@ -38,6 +38,10 @@ const (
 	LeaseEvent_KIND_PREPARE LeaseEvent_Kind = 3
 	// A transaction this holder prepared for committed or was abandoned.
 	LeaseEvent_KIND_OUTCOME LeaseEvent_Kind = 4
+	// The player is about to switch to the server named in requested_by
+	// (see Expect). Save their changes now, so the handover that follows
+	// has little left to write. Keep the player: this is only a hint.
+	LeaseEvent_KIND_SWITCH_EXPECTED LeaseEvent_Kind = 5
 )
 
 // Enum value maps for LeaseEvent_Kind.
@@ -48,6 +52,7 @@ var (
 		2: "KIND_LOST",
 		3: "KIND_PREPARE",
 		4: "KIND_OUTCOME",
+		5: "KIND_SWITCH_EXPECTED",
 	}
 	LeaseEvent_Kind_value = map[string]int32{
 		"KIND_UNSPECIFIED":        0,
@@ -55,6 +60,7 @@ var (
 		"KIND_LOST":               2,
 		"KIND_PREPARE":            3,
 		"KIND_OUTCOME":            4,
+		"KIND_SWITCH_EXPECTED":    5,
 	}
 )
 
@@ -958,6 +964,106 @@ func (x *GetTransactionOutcomeResponse) GetVersions() []uint64 {
 	return nil
 }
 
+type ExpectRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The player's UUID, 16 bytes.
+	Player []byte `protobuf:"bytes,1,opt,name=player,proto3" json:"player,omitempty"`
+	// Name of the server the player is about to join, as its connector
+	// calls itself (server-name); empty for a first join.
+	Target        string `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ExpectRequest) Reset() {
+	*x = ExpectRequest{}
+	mi := &file_leonsdb_v1_lease_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExpectRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExpectRequest) ProtoMessage() {}
+
+func (x *ExpectRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_leonsdb_v1_lease_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExpectRequest.ProtoReflect.Descriptor instead.
+func (*ExpectRequest) Descriptor() ([]byte, []int) {
+	return file_leonsdb_v1_lease_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *ExpectRequest) GetPlayer() []byte {
+	if x != nil {
+		return x.Player
+	}
+	return nil
+}
+
+func (x *ExpectRequest) GetTarget() string {
+	if x != nil {
+		return x.Target
+	}
+	return ""
+}
+
+type ExpectResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// True if a server owned the player and was told.
+	OwnerTold     bool `protobuf:"varint,1,opt,name=owner_told,json=ownerTold,proto3" json:"owner_told,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ExpectResponse) Reset() {
+	*x = ExpectResponse{}
+	mi := &file_leonsdb_v1_lease_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExpectResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExpectResponse) ProtoMessage() {}
+
+func (x *ExpectResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_leonsdb_v1_lease_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExpectResponse.ProtoReflect.Descriptor instead.
+func (*ExpectResponse) Descriptor() ([]byte, []int) {
+	return file_leonsdb_v1_lease_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *ExpectResponse) GetOwnerTold() bool {
+	if x != nil {
+		return x.OwnerTold
+	}
+	return false
+}
+
 var File_leonsdb_v1_lease_proto protoreflect.FileDescriptor
 
 const file_leonsdb_v1_lease_proto_rawDesc = "" +
@@ -991,7 +1097,7 @@ const file_leonsdb_v1_lease_proto_rawDesc = "" +
 	"\x12WatchLeasesRequest\x12\x1b\n" +
 	"\tholder_id\x18\x01 \x01(\tR\bholderId\x12\x1f\n" +
 	"\vholder_name\x18\x02 \x01(\tR\n" +
-	"holderName\"\x9c\x04\n" +
+	"holderName\"\xb7\x04\n" +
 	"\n" +
 	"LeaseEvent\x12/\n" +
 	"\x04kind\x18\x01 \x01(\x0e2\x1b.leonsdb.v1.LeaseEvent.KindR\x04kind\x12\x16\n" +
@@ -1011,13 +1117,14 @@ const file_leonsdb_v1_lease_proto_rawDesc = "" +
 	"\tcommitted\x18\b \x01(\bR\tcommitted\x12\x18\n" +
 	"\aversion\x18\t \x01(\x04R\aversion\x12\x1d\n" +
 	"\n" +
-	"prepare_id\x18\v \x01(\fR\tprepareId\"l\n" +
+	"prepare_id\x18\v \x01(\fR\tprepareId\"\x86\x01\n" +
 	"\x04Kind\x12\x14\n" +
 	"\x10KIND_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17KIND_HANDOVER_REQUESTED\x10\x01\x12\r\n" +
 	"\tKIND_LOST\x10\x02\x12\x10\n" +
 	"\fKIND_PREPARE\x10\x03\x12\x10\n" +
-	"\fKIND_OUTCOME\x10\x04\"\x87\x03\n" +
+	"\fKIND_OUTCOME\x10\x04\x12\x18\n" +
+	"\x14KIND_SWITCH_EXPECTED\x10\x05\"\x87\x03\n" +
 	"\x0fPreparedRequest\x12\x1b\n" +
 	"\tholder_id\x18\x01 \x01(\tR\bholderId\x12%\n" +
 	"\x0etransaction_id\x18\x02 \x01(\fR\rtransactionId\x12\x1f\n" +
@@ -1047,14 +1154,21 @@ const file_leonsdb_v1_lease_proto_rawDesc = "" +
 	"\x13OUTCOME_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fOUTCOME_PENDING\x10\x01\x12\x15\n" +
 	"\x11OUTCOME_COMMITTED\x10\x02\x12\x13\n" +
-	"\x0fOUTCOME_ABORTED\x10\x032\xec\x03\n" +
+	"\x0fOUTCOME_ABORTED\x10\x03\"?\n" +
+	"\rExpectRequest\x12\x16\n" +
+	"\x06player\x18\x01 \x01(\fR\x06player\x12\x16\n" +
+	"\x06target\x18\x02 \x01(\tR\x06target\"/\n" +
+	"\x0eExpectResponse\x12\x1d\n" +
+	"\n" +
+	"owner_told\x18\x01 \x01(\bR\townerTold2\xad\x04\n" +
 	"\fLeaseService\x12L\n" +
 	"\aAcquire\x12\x1f.leonsdb.v1.AcquireLeaseRequest\x1a .leonsdb.v1.AcquireLeaseResponse\x12H\n" +
 	"\x05Renew\x12\x1e.leonsdb.v1.RenewLeasesRequest\x1a\x1f.leonsdb.v1.RenewLeasesResponse\x12L\n" +
 	"\aRelease\x12\x1f.leonsdb.v1.ReleaseLeaseRequest\x1a .leonsdb.v1.ReleaseLeaseResponse\x12A\n" +
 	"\x05Watch\x12\x1e.leonsdb.v1.WatchLeasesRequest\x1a\x16.leonsdb.v1.LeaseEvent0\x01\x12E\n" +
 	"\bPrepared\x12\x1b.leonsdb.v1.PreparedRequest\x1a\x1c.leonsdb.v1.PreparedResponse\x12l\n" +
-	"\x15GetTransactionOutcome\x12(.leonsdb.v1.GetTransactionOutcomeRequest\x1a).leonsdb.v1.GetTransactionOutcomeResponseBl\n" +
+	"\x15GetTransactionOutcome\x12(.leonsdb.v1.GetTransactionOutcomeRequest\x1a).leonsdb.v1.GetTransactionOutcomeResponse\x12?\n" +
+	"\x06Expect\x12\x19.leonsdb.v1.ExpectRequest\x1a\x1a.leonsdb.v1.ExpectResponseBl\n" +
 	"\x14com.leonsdb.proto.v1B\n" +
 	"LeaseProtoP\x01ZFgithub.com/Leoon-X/leonsdb-connector/proto/gen/go/leonsdb/v1;leonsdbv1b\x06proto3"
 
@@ -1071,7 +1185,7 @@ func file_leonsdb_v1_lease_proto_rawDescGZIP() []byte {
 }
 
 var file_leonsdb_v1_lease_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_leonsdb_v1_lease_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_leonsdb_v1_lease_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_leonsdb_v1_lease_proto_goTypes = []any{
 	(LeaseEvent_Kind)(0),                       // 0: leonsdb.v1.LeaseEvent.Kind
 	(GetTransactionOutcomeResponse_Outcome)(0), // 1: leonsdb.v1.GetTransactionOutcomeResponse.Outcome
@@ -1087,18 +1201,20 @@ var file_leonsdb_v1_lease_proto_goTypes = []any{
 	(*PreparedResponse)(nil),                   // 11: leonsdb.v1.PreparedResponse
 	(*GetTransactionOutcomeRequest)(nil),       // 12: leonsdb.v1.GetTransactionOutcomeRequest
 	(*GetTransactionOutcomeResponse)(nil),      // 13: leonsdb.v1.GetTransactionOutcomeResponse
-	(*Record)(nil),                             // 14: leonsdb.v1.Record
-	(*RecordRef)(nil),                          // 15: leonsdb.v1.RecordRef
-	(*Operation)(nil),                          // 16: leonsdb.v1.Operation
-	(*Condition)(nil),                          // 17: leonsdb.v1.Condition
+	(*ExpectRequest)(nil),                      // 14: leonsdb.v1.ExpectRequest
+	(*ExpectResponse)(nil),                     // 15: leonsdb.v1.ExpectResponse
+	(*Record)(nil),                             // 16: leonsdb.v1.Record
+	(*RecordRef)(nil),                          // 17: leonsdb.v1.RecordRef
+	(*Operation)(nil),                          // 18: leonsdb.v1.Operation
+	(*Condition)(nil),                          // 19: leonsdb.v1.Condition
 }
 var file_leonsdb_v1_lease_proto_depIdxs = []int32{
-	14, // 0: leonsdb.v1.AcquireLeaseResponse.records:type_name -> leonsdb.v1.Record
+	16, // 0: leonsdb.v1.AcquireLeaseResponse.records:type_name -> leonsdb.v1.Record
 	0,  // 1: leonsdb.v1.LeaseEvent.kind:type_name -> leonsdb.v1.LeaseEvent.Kind
-	15, // 2: leonsdb.v1.LeaseEvent.ref:type_name -> leonsdb.v1.RecordRef
-	16, // 3: leonsdb.v1.LeaseEvent.operations:type_name -> leonsdb.v1.Operation
-	17, // 4: leonsdb.v1.LeaseEvent.conditions:type_name -> leonsdb.v1.Condition
-	16, // 5: leonsdb.v1.PreparedRequest.operations:type_name -> leonsdb.v1.Operation
+	17, // 2: leonsdb.v1.LeaseEvent.ref:type_name -> leonsdb.v1.RecordRef
+	18, // 3: leonsdb.v1.LeaseEvent.operations:type_name -> leonsdb.v1.Operation
+	19, // 4: leonsdb.v1.LeaseEvent.conditions:type_name -> leonsdb.v1.Condition
+	18, // 5: leonsdb.v1.PreparedRequest.operations:type_name -> leonsdb.v1.Operation
 	1,  // 6: leonsdb.v1.GetTransactionOutcomeResponse.outcome:type_name -> leonsdb.v1.GetTransactionOutcomeResponse.Outcome
 	2,  // 7: leonsdb.v1.LeaseService.Acquire:input_type -> leonsdb.v1.AcquireLeaseRequest
 	4,  // 8: leonsdb.v1.LeaseService.Renew:input_type -> leonsdb.v1.RenewLeasesRequest
@@ -1106,14 +1222,16 @@ var file_leonsdb_v1_lease_proto_depIdxs = []int32{
 	8,  // 10: leonsdb.v1.LeaseService.Watch:input_type -> leonsdb.v1.WatchLeasesRequest
 	10, // 11: leonsdb.v1.LeaseService.Prepared:input_type -> leonsdb.v1.PreparedRequest
 	12, // 12: leonsdb.v1.LeaseService.GetTransactionOutcome:input_type -> leonsdb.v1.GetTransactionOutcomeRequest
-	3,  // 13: leonsdb.v1.LeaseService.Acquire:output_type -> leonsdb.v1.AcquireLeaseResponse
-	5,  // 14: leonsdb.v1.LeaseService.Renew:output_type -> leonsdb.v1.RenewLeasesResponse
-	7,  // 15: leonsdb.v1.LeaseService.Release:output_type -> leonsdb.v1.ReleaseLeaseResponse
-	9,  // 16: leonsdb.v1.LeaseService.Watch:output_type -> leonsdb.v1.LeaseEvent
-	11, // 17: leonsdb.v1.LeaseService.Prepared:output_type -> leonsdb.v1.PreparedResponse
-	13, // 18: leonsdb.v1.LeaseService.GetTransactionOutcome:output_type -> leonsdb.v1.GetTransactionOutcomeResponse
-	13, // [13:19] is the sub-list for method output_type
-	7,  // [7:13] is the sub-list for method input_type
+	14, // 13: leonsdb.v1.LeaseService.Expect:input_type -> leonsdb.v1.ExpectRequest
+	3,  // 14: leonsdb.v1.LeaseService.Acquire:output_type -> leonsdb.v1.AcquireLeaseResponse
+	5,  // 15: leonsdb.v1.LeaseService.Renew:output_type -> leonsdb.v1.RenewLeasesResponse
+	7,  // 16: leonsdb.v1.LeaseService.Release:output_type -> leonsdb.v1.ReleaseLeaseResponse
+	9,  // 17: leonsdb.v1.LeaseService.Watch:output_type -> leonsdb.v1.LeaseEvent
+	11, // 18: leonsdb.v1.LeaseService.Prepared:output_type -> leonsdb.v1.PreparedResponse
+	13, // 19: leonsdb.v1.LeaseService.GetTransactionOutcome:output_type -> leonsdb.v1.GetTransactionOutcomeResponse
+	15, // 20: leonsdb.v1.LeaseService.Expect:output_type -> leonsdb.v1.ExpectResponse
+	14, // [14:21] is the sub-list for method output_type
+	7,  // [7:14] is the sub-list for method input_type
 	7,  // [7:7] is the sub-list for extension type_name
 	7,  // [7:7] is the sub-list for extension extendee
 	0,  // [0:7] is the sub-list for field type_name
@@ -1132,7 +1250,7 @@ func file_leonsdb_v1_lease_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_leonsdb_v1_lease_proto_rawDesc), len(file_leonsdb_v1_lease_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   12,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

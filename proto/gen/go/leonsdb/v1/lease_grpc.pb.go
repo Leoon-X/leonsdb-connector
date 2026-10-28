@@ -28,6 +28,7 @@ const (
 	LeaseService_Watch_FullMethodName                 = "/leonsdb.v1.LeaseService/Watch"
 	LeaseService_Prepared_FullMethodName              = "/leonsdb.v1.LeaseService/Prepared"
 	LeaseService_GetTransactionOutcome_FullMethodName = "/leonsdb.v1.LeaseService/GetTransactionOutcome"
+	LeaseService_Expect_FullMethodName                = "/leonsdb.v1.LeaseService/Expect"
 )
 
 // LeaseServiceClient is the client API for LeaseService service.
@@ -65,6 +66,13 @@ type LeaseServiceClient interface {
 	// GetTransactionOutcome tells a holder that prepared a write whether the
 	// transaction committed, for when the KIND_OUTCOME event was missed.
 	GetTransactionOutcome(ctx context.Context, in *GetTransactionOutcomeRequest, opts ...grpc.CallOption) (*GetTransactionOutcomeResponse, error)
+	// Expect says a player is about to join another server, so the switch
+	// waits less. A proxy sends it just before it moves the player. The
+	// owner, if any, is told with KIND_SWITCH_EXPECTED to save the player
+	// now, and the player's records are read into memory. Ownership does not
+	// change: the owner keeps the player, and keeps saving, until the new
+	// server asks for them, so a switch that fails loses nothing.
+	Expect(ctx context.Context, in *ExpectRequest, opts ...grpc.CallOption) (*ExpectResponse, error)
 }
 
 type leaseServiceClient struct {
@@ -144,6 +152,16 @@ func (c *leaseServiceClient) GetTransactionOutcome(ctx context.Context, in *GetT
 	return out, nil
 }
 
+func (c *leaseServiceClient) Expect(ctx context.Context, in *ExpectRequest, opts ...grpc.CallOption) (*ExpectResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ExpectResponse)
+	err := c.cc.Invoke(ctx, LeaseService_Expect_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LeaseServiceServer is the server API for LeaseService service.
 // All implementations must embed UnimplementedLeaseServiceServer
 // for forward compatibility.
@@ -179,6 +197,13 @@ type LeaseServiceServer interface {
 	// GetTransactionOutcome tells a holder that prepared a write whether the
 	// transaction committed, for when the KIND_OUTCOME event was missed.
 	GetTransactionOutcome(context.Context, *GetTransactionOutcomeRequest) (*GetTransactionOutcomeResponse, error)
+	// Expect says a player is about to join another server, so the switch
+	// waits less. A proxy sends it just before it moves the player. The
+	// owner, if any, is told with KIND_SWITCH_EXPECTED to save the player
+	// now, and the player's records are read into memory. Ownership does not
+	// change: the owner keeps the player, and keeps saving, until the new
+	// server asks for them, so a switch that fails loses nothing.
+	Expect(context.Context, *ExpectRequest) (*ExpectResponse, error)
 	mustEmbedUnimplementedLeaseServiceServer()
 }
 
@@ -206,6 +231,9 @@ func (UnimplementedLeaseServiceServer) Prepared(context.Context, *PreparedReques
 }
 func (UnimplementedLeaseServiceServer) GetTransactionOutcome(context.Context, *GetTransactionOutcomeRequest) (*GetTransactionOutcomeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetTransactionOutcome not implemented")
+}
+func (UnimplementedLeaseServiceServer) Expect(context.Context, *ExpectRequest) (*ExpectResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Expect not implemented")
 }
 func (UnimplementedLeaseServiceServer) mustEmbedUnimplementedLeaseServiceServer() {}
 func (UnimplementedLeaseServiceServer) testEmbeddedByValue()                      {}
@@ -329,6 +357,24 @@ func _LeaseService_GetTransactionOutcome_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LeaseService_Expect_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ExpectRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LeaseServiceServer).Expect(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LeaseService_Expect_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LeaseServiceServer).Expect(ctx, req.(*ExpectRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // LeaseService_ServiceDesc is the grpc.ServiceDesc for LeaseService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -355,6 +401,10 @@ var LeaseService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetTransactionOutcome",
 			Handler:    _LeaseService_GetTransactionOutcome_Handler,
+		},
+		{
+			MethodName: "Expect",
+			Handler:    _LeaseService_Expect_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

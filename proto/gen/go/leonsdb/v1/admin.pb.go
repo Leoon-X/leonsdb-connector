@@ -37,6 +37,9 @@ const (
 	// Only what the token's grants allow, for websites, Discord bots and
 	// stores. Cannot create collections or own players.
 	Role_ROLE_API Role = 4
+	// Only tells LeonsDB which server a player is about to join (Expect), for
+	// proxies such as Velocity. Cannot read or write data.
+	Role_ROLE_PROXY Role = 5
 )
 
 // Enum value maps for Role.
@@ -47,6 +50,7 @@ var (
 		2: "ROLE_SERVER",
 		3: "ROLE_READ_ONLY",
 		4: "ROLE_API",
+		5: "ROLE_PROXY",
 	}
 	Role_value = map[string]int32{
 		"ROLE_UNSPECIFIED": 0,
@@ -54,6 +58,7 @@ var (
 		"ROLE_SERVER":      2,
 		"ROLE_READ_ONLY":   3,
 		"ROLE_API":         4,
+		"ROLE_PROXY":       5,
 	}
 )
 
@@ -997,14 +1002,16 @@ const file_leonsdb_v1_admin_proto_rawDesc = "" +
 	"\x12RevokeTokenRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"/\n" +
 	"\x13RevokeTokenResponse\x12\x18\n" +
-	"\aexisted\x18\x01 \x01(\bR\aexisted*_\n" +
+	"\aexisted\x18\x01 \x01(\bR\aexisted*o\n" +
 	"\x04Role\x12\x14\n" +
 	"\x10ROLE_UNSPECIFIED\x10\x00\x12\x0e\n" +
 	"\n" +
 	"ROLE_ADMIN\x10\x01\x12\x0f\n" +
 	"\vROLE_SERVER\x10\x02\x12\x12\n" +
 	"\x0eROLE_READ_ONLY\x10\x03\x12\f\n" +
-	"\bROLE_API\x10\x04*Z\n" +
+	"\bROLE_API\x10\x04\x12\x0e\n" +
+	"\n" +
+	"ROLE_PROXY\x10\x05*Z\n" +
 	"\x06Access\x12\x16\n" +
 	"\x12ACCESS_UNSPECIFIED\x10\x00\x12\x0f\n" +
 	"\vACCESS_READ\x10\x01\x12\x10\n" +

@@ -83,6 +83,9 @@ enum Role {
   // Only what the token's grants allow, for websites, Discord bots and
   // stores. Cannot create collections or own players.
   ROLE_API = 4;
+  // Only tells LeonsDB which server a player is about to join (Expect), for
+  // proxies such as Velocity. Cannot read or write data.
+  ROLE_PROXY = 5;
 }
 
 // Access is what a grant allows.

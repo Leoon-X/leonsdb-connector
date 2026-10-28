@@ -302,6 +302,40 @@ class PlayerCacheTest {
         svc.shutdown(Duration.ofSeconds(1));
     }
 
+    @PlayerData(namespace = "pvp", collection = "wallet")
+    public static class Wallet {
+        @Transactional public long coins = 100;
+        public int visits;
+    }
+
+    @Test
+    void aNewPlayersTransactionalDefaultsDoNotWarn() throws Exception {
+        var records = new java.util.concurrent.CopyOnWriteArrayList<java.util.logging.LogRecord>();
+        Logger log = Logger.getLogger("transactional-defaults");
+        log.setUseParentHandlers(false);
+        log.addHandler(new java.util.logging.Handler() {
+            @Override public void publish(java.util.logging.LogRecord r) { records.add(r); }
+            @Override public void flush() { }
+            @Override public void close() { }
+        });
+        var svc = TestPlatform.service(client, log, new TestPlatform(), tmp);
+        svc.register(Wallet.class);
+        svc.loadPlayer(steve);
+        svc.player(steve).get(Wallet.class).visits++;
+        svc.flushTick();
+        svc.player(steve).update(Wallet.class, w -> w.coins += 5).get(5, TimeUnit.SECONDS);
+        svc.flushTick();
+        svc.player(steve).save().get(5, TimeUnit.SECONDS);
+        assertEquals(0, records.stream().filter(r -> r.getMessage().contains("@Transactional")).count(),
+                "the default 100 and a change by update() are not direct changes");
+
+        svc.player(steve).get(Wallet.class).coins -= 1;
+        svc.flushTick();
+        assertEquals(1, records.stream().filter(r -> r.getMessage().contains("@Transactional")).count(),
+                "a direct change still warns");
+        svc.shutdown(Duration.ofSeconds(1));
+    }
+
     // --- Ownership ---------------------------------------------------------------
 
     private com.google.protobuf.ByteString playerBytes() {

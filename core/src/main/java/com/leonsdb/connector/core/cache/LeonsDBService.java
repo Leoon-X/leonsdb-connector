@@ -740,19 +740,11 @@ public final class LeonsDBService implements LeonsDBProvider {
         if (warnedTransactional.contains(obj.schema().type())) {
             return;
         }
-        Set<String> transactional = new HashSet<>();
-        obj.schema().fields().forEach(f -> {
-            if (f.transactional()) {
-                transactional.add(f.name());
-            }
-        });
-        for (var op : obj.pendingOps(snap)) {
-            if (transactional.contains(op.getField()) && warnedTransactional.add(obj.schema().type())) {
-                log.warning(obj.schema().type().getSimpleName() + "." + op.getField() + " is @Transactional but was "
-                        + "changed directly. It will be saved, but for immediate, confirmed saves change it with "
-                        + "LeonsDB.player(uuid).update(" + obj.schema().type().getSimpleName() + ".class, ...).");
-                return;
-            }
+        List<String> changed = obj.directlyChangedTransactional(snap);
+        if (!changed.isEmpty() && warnedTransactional.add(obj.schema().type())) {
+            log.warning(obj.schema().type().getSimpleName() + "." + changed.get(0) + " is @Transactional but was "
+                    + "changed directly. It will be saved, but for immediate, confirmed saves change it with "
+                    + "LeonsDB.player(uuid).update(" + obj.schema().type().getSimpleName() + ".class, ...).");
         }
     }
 

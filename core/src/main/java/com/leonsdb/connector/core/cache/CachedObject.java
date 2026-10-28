@@ -70,6 +70,9 @@ public final class CachedObject<T> {
     // A transaction holds this object: no save may start until it ends.
     private boolean reserved;
     private final ArrayDeque<CompletableFuture<Void>> reservations = new ArrayDeque<>();
+    // What the last check for directly changed @Transactional fields saw.
+    // Main thread only.
+    private Map<String, Value> lastChecked;
 
     CachedObject(ClassSchema<T> schema, RecordRef ref, T instance, Set<String> unreadable,
                  Map<String, Value> base, long version, LeonsDBClient client, Logger log,
@@ -84,6 +87,15 @@ public final class CachedObject<T> {
         this.log = log;
         this.epoch = epoch;
         this.onOwnershipLost = onOwnershipLost;
+        // A new player's defaults (coins = 100) differ from the empty stored
+        // record, but no plugin changed them.
+        Map<String, Value> loaded;
+        try {
+            loaded = schema.hasTransactional() ? Map.copyOf(schema.read(instance)) : Map.of();
+        } catch (IllegalArgumentException e) {
+            loaded = Map.copyOf(base);
+        }
+        this.lastChecked = loaded;
     }
 
     /** @return the cached object plugins change */
@@ -150,6 +162,29 @@ public final class CachedObject<T> {
      */
     public synchronized List<Operation> pendingOps(Map<String, Value> snapshot) {
         return Diff.compute(schema, base, snapshot, unreadable);
+    }
+
+    /**
+     * The {@code @Transactional} fields a plugin changed directly since the
+     * last check: changed in memory, but not by update() or a transaction,
+     * which store the change themselves. Main thread only.
+     *
+     * @param snapshot the current values
+     * @return the names of those fields
+     */
+    List<String> directlyChangedTransactional(Map<String, Value> snapshot) {
+        Map<String, Value> stored = base();
+        List<String> out = new ArrayList<>();
+        for (ClassSchema.FieldBinding f : schema.fields()) {
+            Value now = snapshot.get(f.name());
+            if (f.transactional() && !unreadable.contains(f.name())
+                    && !java.util.Objects.equals(now, lastChecked.get(f.name()))
+                    && !java.util.Objects.equals(now, stored.get(f.name()))) {
+                out.add(f.name());
+            }
+        }
+        lastChecked = snapshot;
+        return out;
     }
 
     // --- Sending ---------------------------------------------------------

@@ -14,6 +14,9 @@ tasks.named("sourcesJar") { enabled = false }
 dependencies {
     compileOnly(libs.paper.api)
     implementation(project(":leonsdb-core"))
+    testImplementation(platform(libs.junit.bom))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 tasks.processResources {

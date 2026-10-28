@@ -319,7 +319,7 @@ or `String`. A null field is stored as "no value".
 | LeonsDB is unreachable when a player joins | The player is asked to try again. They never play with empty data, which would later overwrite their real data. |
 | LeonsDB goes down while players are online | Players keep playing. Changes stay in memory and are saved as soon as LeonsDB is back. |
 | A player rejoins before their data finished saving | The join waits for the save (and for the hand-back of ownership), so it never loads outdated data. |
-| A player switches servers | The old server saves the player's latest data and hands them over; the new server loads it. It takes milliseconds. |
+| A player switches servers | The old server saves the player's latest data and hands them over; the new server loads it. It takes milliseconds: a Paper server saves as soon as its main thread is idle, without waiting for its next tick (it logs this at startup; start it with `-Dleonsdb.idleQueue=false` to wait for the tick instead). Folia saves at the player's next region tick. |
 | A player is logged in on two servers at once | Only one server owns their data. The other one hands over and disconnects them, so nothing can be duplicated. |
 | A Minecraft server crashes with players online | Their ownership expires after about 10 seconds; then they can join another server with their last saved data. |
 | The Minecraft server stops | Everything is saved first. If LeonsDB cannot be reached within 10 seconds, unsaved changes are written to `plugins/LeonsDB/recovery/`. |

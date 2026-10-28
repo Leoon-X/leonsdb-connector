@@ -78,7 +78,9 @@ public final class LeonsDBPlugin extends JavaPlugin implements Listener {
         if (serverName == null || serverName.isBlank()) {
             serverName = "paper-" + Bukkit.getPort();
         }
-        service = new LeonsDBService(client, codecs, getLogger(), new PaperPlatform(this), new LeonsDBService.Settings(
+        PaperPlatform platform = new PaperPlatform(this);
+        platform.useIdleQueueIfItWorks();
+        service = new LeonsDBService(client, codecs, getLogger(), platform, new LeonsDBService.Settings(
                 serverName,
                 Duration.ofMillis(config.getLong("load-timeout-ms", 5000)),
                 Duration.ofMillis(config.getLong("lease-wait-ms", 10000)),

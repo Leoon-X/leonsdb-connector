@@ -88,8 +88,10 @@ public final class LeonsDBPlugin extends JavaPlugin implements Listener {
         LeonsDB.install(service);
 
         long flushTicks = Math.max(1, config.getLong("save-interval-ticks", 20));
-        Bukkit.getScheduler().runTaskTimer(this, service::flushTick, flushTicks, flushTicks);
-        Bukkit.getScheduler().runTaskTimer(this, this::cleanUpAbandonedLogins, 20 * 30, 20 * 30);
+        // The global region scheduler is the main thread on Paper; on Folia,
+        // flushTick saves each player on the thread of their region.
+        Bukkit.getGlobalRegionScheduler().runAtFixedRate(this, t -> service.flushTick(), flushTicks, flushTicks);
+        Bukkit.getGlobalRegionScheduler().runAtFixedRate(this, t -> cleanUpAbandonedLogins(), 20 * 30, 20 * 30);
         getServer().getPluginManager().registerEvents(this, this);
     }
 

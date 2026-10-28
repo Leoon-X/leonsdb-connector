@@ -7,3 +7,6 @@ api-version: '1.21'
 description: Connects this server to a LeonsDB database.
 website: https://leonsdb.com
 load: STARTUP
+# Runs on Folia too: player data is only touched on the thread of the
+# player's region.
+folia-supported: true

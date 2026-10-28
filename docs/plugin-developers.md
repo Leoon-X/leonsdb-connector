@@ -66,6 +66,13 @@ Forty kills between two saves become one "kills +40" write.
 Use `get` and change fields on the **main thread**. Keep the reference only
 while the player is online.
 
+On **Folia** there is no single main thread: use `get`, `update` and `save`
+on the thread of the region the player is in (in their own events, or in a
+task from `player.getScheduler()`). LeonsDB saves each player on their
+region's thread too. Futures and listeners that are not about one player
+(transactions, messages, history) complete on the global region thread, as
+on Paper they complete on the main thread.
+
 ### Money and other changes that must never be lost
 
 Use `update`. The change is applied immediately and saved right away; the
@@ -354,7 +361,8 @@ LeonsDB.leaderboard(Stats.class, "bestTime", Leaderboard.Order.LOWEST_FIRST);
 
 ## Rules of thumb
 
-- Call `get`, `update` and `save` on the main thread.
+- Call `get`, `update` and `save` on the main thread (on Folia: the thread
+  of the player's region).
 - Never `join()` or `get()` a LeonsDB future on the main thread.
 - Use `long` for money (in cents if you need fractions). `double` works, but
   floating-point rounding is not what you want for currency.

@@ -70,6 +70,7 @@ class RealServerTest {
     private static Path dataDir;
     private static int port;
     private static String serverToken;
+    private static String proxyToken;
 
     @BeforeAll
     static void startServer() throws Exception {
@@ -113,6 +114,8 @@ class RealServerTest {
                     .withDeadlineAfter(10, TimeUnit.SECONDS);
             serverToken = adminStub.createToken(CreateTokenRequest.newBuilder()
                     .setName("contract-test").setRole(Role.ROLE_SERVER).build()).getSecret();
+            proxyToken = adminStub.createToken(CreateTokenRequest.newBuilder()
+                    .setName("contract-proxy").setRole(Role.ROLE_PROXY).build()).getSecret();
         } finally {
             channel.shutdownNow();
         }
@@ -325,6 +328,130 @@ class RealServerTest {
             survival.player(uuid).save().get(5, TimeUnit.SECONDS);
             lobby.shutdown(Duration.ofSeconds(1));
             survival.shutdown(Duration.ofSeconds(1));
+        }
+    }
+
+    @PlayerData(namespace = "contract", collection = "switching")
+    public static class Inventory {
+        public int kills;
+        public String items; // about the size of a full inventory
+    }
+
+    /**
+     * Paper's main thread: a task runs at the next 50 ms tick, as on a real
+     * server, so a handover waits for the old server's tick.
+     */
+    static final class TickingPlatform implements com.leonsdb.connector.core.cache.Platform {
+        private static final long TICK = TimeUnit.MILLISECONDS.toNanos(50);
+        final java.util.Set<UUID> online = java.util.concurrent.ConcurrentHashMap.newKeySet();
+        private final java.util.concurrent.ScheduledExecutorService main =
+                java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> new Thread(r, "main"));
+        private final long start = System.nanoTime();
+
+        @Override
+        public boolean isMainThread() {
+            return Thread.currentThread().getName().equals("main");
+        }
+
+        @Override
+        public void runOnMainThread(Runnable task, Duration delay) {
+            long now = System.nanoTime();
+            long at = now + delay.toNanos();
+            long tick = start + ((at - start) / TICK + 1) * TICK;
+            main.schedule(task, tick - now, TimeUnit.NANOSECONDS);
+        }
+
+        @Override
+        public boolean isOnline(UUID player) {
+            return online.contains(player);
+        }
+
+        @Override
+        public void disconnect(UUID player, String message) {
+            online.remove(player);
+        }
+
+        <T> T call(java.util.concurrent.Callable<T> task) throws Exception {
+            return main.submit(task).get(5, TimeUnit.SECONDS);
+        }
+
+        void close() {
+            main.shutdownNow();
+        }
+    }
+
+    /**
+     * A switch with the proxy's hint loses no change, and the new server
+     * waits less for the old one. The times are written to
+     * build/switch-times.txt.
+     */
+    @Test
+    void aProxysHintBeforeASwitchKeepsEveryChange() throws Exception {
+        int trials = Integer.getInteger("leonsdb.switch.trials", 20);
+        var proxyClient = LeonsDBClient.connect(new ConnectionSettings("127.0.0.1", port, false, proxyToken,
+                Duration.ofSeconds(5)), "contract-proxy");
+        var lobbyPlatform = new TickingPlatform();
+        var survivalPlatform = new TickingPlatform();
+        StringBuilder report = new StringBuilder("gap_ms hint wait_ms\n");
+        try (proxyClient; var lobbyClient = client(); var survivalClient = client()) {
+            var lobby = TestPlatform.service(lobbyClient, Logger.getLogger("lobby"), lobbyPlatform, dataDir.resolve("s1"));
+            var survival = TestPlatform.service(survivalClient, Logger.getLogger("survival"), survivalPlatform, dataDir.resolve("s2"));
+            started.add(lobby);
+            started.add(survival);
+            lobby.register(Inventory.class);
+            survival.register(Inventory.class);
+            var random = new java.util.Random(7);
+
+            // A proxy token can only hint.
+            var refused = assertThrows(ExecutionException.class, () -> proxyClient.get(RecordRef.newBuilder()
+                    .setNamespace("contract").setCollection("switching").setPlayer(TestPlatform.bytes(UUID.randomUUID()))
+                    .build()).get(5, TimeUnit.SECONDS));
+            assertTrue(refused.getCause() instanceof RequestException re && re.code() == io.grpc.Status.Code.PERMISSION_DENIED,
+                    "got " + refused.getCause());
+
+            // gap: from the proxy's hint to the new server's login. Velocity
+            // connects to the new server first, so the login comes a few ms later.
+            for (int gap : new int[] {10, 50}) {
+                for (int i = 0; i < 2 * trials; i++) {
+                    boolean hint = i % 2 == 1;
+                    UUID uuid = UUID.randomUUID();
+                    lobby.loadPlayer(uuid);
+                    lobbyPlatform.online.add(uuid);
+                    byte[] items = new byte[12_000];
+                    random.nextBytes(items);
+                    String inventory = java.util.HexFormat.of().formatHex(items);
+                    lobbyPlatform.call(() -> {
+                        var inv = lobby.player(uuid).get(Inventory.class);
+                        inv.kills = 1;
+                        inv.items = inventory; // not saved yet
+                        return null;
+                    });
+
+                    if (hint) {
+                        proxyClient.expect(TestPlatform.bytes(uuid), "survival"); // not waited for, as on Velocity
+                    }
+                    Thread.sleep(gap / 2);
+                    // The game goes on on the lobby after the hint.
+                    lobbyPlatform.call(() -> lobby.player(uuid).get(Inventory.class).kills = 2);
+                    Thread.sleep(gap - gap / 2);
+
+                    long t = System.nanoTime();
+                    survival.loadPlayer(uuid);
+                    double waited = (System.nanoTime() - t) / 1e6;
+                    report.append(gap).append(' ').append(hint).append(' ')
+                            .append(String.format(java.util.Locale.ROOT, "%.2f", waited)).append('\n');
+
+                    var got = survivalPlatform.call(() -> survival.player(uuid).get(Inventory.class));
+                    assertEquals(2, got.kills, "the change made after the hint arrived");
+                    assertEquals(inventory, got.items, "the unsaved inventory arrived");
+                    lobbyPlatform.online.remove(uuid);
+                    survivalPlatform.call(() -> survival.unloadPlayer(uuid)).get(5, TimeUnit.SECONDS);
+                }
+            }
+        } finally {
+            lobbyPlatform.close();
+            survivalPlatform.close();
+            Files.writeString(Path.of("build", "switch-times.txt"), report);
         }
     }
 

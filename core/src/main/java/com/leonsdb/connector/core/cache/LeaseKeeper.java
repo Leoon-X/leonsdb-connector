@@ -49,6 +49,7 @@ final class LeaseKeeper {
     private volatile Consumer<UUID> onLost = uuid -> { };
     private volatile Consumer<LeaseEvent> onTransaction = ev -> { };
     private volatile Runnable onReplaced = () -> { };
+    private volatile Consumer<UUID> onSwitchExpected = uuid -> { };
     /** The instance id of the database, from the last time it was asked. */
     private volatile String instanceId;
     private volatile long ttlMillis = DEFAULT_TTL_MILLIS;
@@ -71,8 +72,12 @@ final class LeaseKeeper {
      * @param transaction called with KIND_PREPARE and KIND_OUTCOME events
      * @param replaced    called when LeonsDB answers with another instance id
      *                    (its data was restored from a backup)
+     * @param switchExpected called when a proxy says one of our players is
+     *                       about to switch servers (a hint; nothing changes)
      */
-    void start(Consumer<UUID> handover, Consumer<UUID> lost, Consumer<LeaseEvent> transaction, Runnable replaced) {
+    void start(Consumer<UUID> handover, Consumer<UUID> lost, Consumer<LeaseEvent> transaction, Runnable replaced,
+               Consumer<UUID> switchExpected) {
+        this.onSwitchExpected = switchExpected;
         this.onHandoverRequested = handover;
         this.onLost = lost;
         this.onTransaction = transaction;
@@ -291,6 +296,7 @@ final class LeaseKeeper {
                     case KIND_HANDOVER_REQUESTED -> onHandoverRequested.accept(uuid);
                     case KIND_LOST -> lost(uuid);
                     case KIND_PREPARE, KIND_OUTCOME -> onTransaction.accept(ev);
+                    case KIND_SWITCH_EXPECTED -> onSwitchExpected.accept(uuid);
                     default -> { }
                 }
             }

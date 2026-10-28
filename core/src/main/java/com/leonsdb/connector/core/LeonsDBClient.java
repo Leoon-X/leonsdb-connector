@@ -28,6 +28,8 @@ import com.leonsdb.proto.v1.DataServiceGrpc;
 import com.leonsdb.proto.v1.DeleteRequest;
 import com.leonsdb.proto.v1.EnsureCollectionRequest;
 import com.leonsdb.proto.v1.EnsureCollectionResponse;
+import com.leonsdb.proto.v1.ExpectRequest;
+import com.leonsdb.proto.v1.ExpectResponse;
 import com.leonsdb.proto.v1.GetInfoRequest;
 import com.leonsdb.proto.v1.GetInfoResponse;
 import com.leonsdb.proto.v1.GetTransactionOutcomeRequest;
@@ -375,6 +377,22 @@ public final class LeonsDBClient implements AutoCloseable {
         var stub = leases.withDeadlineAfter(timeoutMillis(), TimeUnit.MILLISECONDS);
         return call("GetTransactionOutcome", stub.getTransactionOutcome(GetTransactionOutcomeRequest.newBuilder()
                 .setTransactionId(transactionId).setPrepareId(prepareId).build()));
+    }
+
+    /**
+     * Says a player is about to join another server (a proxy's hint): the
+     * server that has the player saves them now, and LeonsDB reads their
+     * data into memory. Ownership does not change.
+     *
+     * @param player 16-byte UUID
+     * @param target name of the server the player is about to join; empty
+     *               for a first join
+     * @return true if a server had the player and was told
+     */
+    public CompletableFuture<Boolean> expect(ByteString player, String target) {
+        var stub = leases.withDeadlineAfter(timeoutMillis(), TimeUnit.MILLISECONDS);
+        return call("Expect", stub.expect(ExpectRequest.newBuilder().setPlayer(player).setTarget(target).build()))
+                .thenApply(ExpectResponse::getOwnerTold);
     }
 
     /**

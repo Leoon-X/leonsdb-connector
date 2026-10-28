@@ -39,7 +39,7 @@ final class PlayerHandleImpl implements PlayerHandle {
 
     @Override
     public <T> CompletableFuture<Void> update(Class<T> type, Consumer<? super T> change) {
-        service.requireMainThread("PlayerHandle.update");
+        service.requirePlayerThread(uuid, "PlayerHandle.update");
         CachedObject<T> obj = service.cached(uuid, Objects.requireNonNull(type, "type"), true);
         change.accept(obj.instance());
         CompletableFuture<Void> saved = new CompletableFuture<>();
@@ -49,7 +49,7 @@ final class PlayerHandleImpl implements PlayerHandle {
 
     @Override
     public CompletableFuture<Void> save() {
-        service.requireMainThread("PlayerHandle.save");
+        service.requirePlayerThread(uuid, "PlayerHandle.save");
         List<CompletableFuture<Void>> saves = new ArrayList<>();
         for (CachedObject<?> obj : service.objectsOf(uuid)) {
             CompletableFuture<Void> saved = new CompletableFuture<>();

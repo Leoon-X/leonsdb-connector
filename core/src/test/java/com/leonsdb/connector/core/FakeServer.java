@@ -141,6 +141,15 @@ public final class FakeServer implements AutoCloseable {
         send(LeaseEvent.Kind.KIND_HANDOVER_REQUESTED, player);
     }
 
+    /**
+     * A proxy says the player is about to switch servers.
+     *
+     * @param player 16-byte UUID
+     */
+    public void expectSwitch(ByteString player) {
+        send(LeaseEvent.Kind.KIND_SWITCH_EXPECTED, player);
+    }
+
     /** The instance id reported to clients; change it to simulate a restore. */
     public volatile String instanceId = "fake-instance-1";
 

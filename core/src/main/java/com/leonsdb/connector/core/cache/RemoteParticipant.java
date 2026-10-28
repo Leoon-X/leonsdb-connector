@@ -106,16 +106,20 @@ final class RemoteParticipant {
             refuse(ev, "PLAYER_NOT_LOADED", "the player's data is not loaded on this server (joining or leaving); try again");
             return;
         }
+        if (!session.beginTransaction()) {
+            refuse(ev, "PLAYER_NOT_LOADED", "the player's data is not loaded on this server (joining or leaving); try again");
+            return;
+        }
         java.util.concurrent.CompletableFuture<Void> reservation = obj.reserveUnlessBusy();
         if (reservation == null) {
+            session.endTransaction();
             refuse(ev, "BUSY", "the player is in another transaction right now; try again");
             return;
         }
-        session.beginTransaction();
-        reservation.thenRun(() -> service.onMainThread(() -> prepareReserved(ev, session, obj)));
+        reservation.thenRun(() -> service.onPlayerThread(session.uuid, () -> prepareReserved(ev, session, obj)));
     }
 
-    /** Main thread, with the object reserved. */
+    /** The player's thread, with the object reserved. */
     private void prepareReserved(LeaseEvent ev, PlayerSession session, CachedObject<?> obj) {
         Map<String, Value> before;
         Map<String, Value> after;
@@ -190,7 +194,7 @@ final class RemoteParticipant {
             return;
         }
         p.obj.committed(p.after, version);
-        service.onMainThread(() -> {
+        service.onPlayerThread(p.session.uuid, () -> {
             try {
                 p.obj.applyChange(p.before, p.after);
             } catch (RuntimeException e) {

@@ -47,15 +47,15 @@ import java.util.logging.Logger;
 
 /**
  * The platform-independent connector: registered classes, player ownership,
- * the player cache and its save loop. A platform plugin (Paper, later Folia
- * and Velocity) creates one, calls {@link #start}, installs it into
+ * the player cache and its save loop. A platform plugin (Paper, which also
+ * covers Folia) creates one, calls {@link #start}, installs it into
  * {@link com.leonsdb.connector.api.LeonsDB} and calls the lifecycle methods
  * from its events:
  *
  * <ul>
  *   <li>{@link #loadPlayer} before a player joins (blocking, off the main thread),</li>
  *   <li>{@link #flushTick} periodically on the main thread,</li>
- *   <li>{@link #unloadPlayer} when a player leaves (main thread),</li>
+ *   <li>{@link #unloadPlayer} when a player leaves (on the player's thread),</li>
  *   <li>{@link #shutdown} when the server stops.</li>
  * </ul>
  *
@@ -139,7 +139,8 @@ public final class LeonsDBService implements LeonsDBProvider {
 
     /** Starts renewing ownership and listening for handover requests. */
     public void start() {
-        leases.start(this::onHandoverRequested, this::onLost, participant::onEvent, this::onDatabaseReplaced);
+        leases.start(this::onHandoverRequested, this::onLost, participant::onEvent, this::onDatabaseReplaced,
+                this::onSwitchExpected);
     }
 
     // --- LeonsDBProvider -------------------------------------------------------
@@ -294,10 +295,11 @@ public final class LeonsDBService implements LeonsDBProvider {
 
     /**
      * Saves a leaving player's data, then releases their ownership and
-     * removes the data from memory. Call on the main thread. If LeonsDB is
-     * unreachable, saving is retried in the background until it succeeds;
-     * the player keeps being owned by this server meanwhile, so no other
-     * server can load outdated data.
+     * removes the data from memory. Call on the player's thread (Paper: the
+     * main thread; Folia: their region's). If LeonsDB is unreachable, saving
+     * is retried in the background until it succeeds; the player keeps
+     * being owned by this server meanwhile, so no other server can load
+     * outdated data.
      *
      * @param uuid the player
      * @return completes when everything is saved and released
@@ -307,11 +309,7 @@ public final class LeonsDBService implements LeonsDBProvider {
         if (session == null) {
             return CompletableFuture.completedFuture(null);
         }
-        if (session.isUnloading()) {
-            return session.unloading;
-        }
         CompletableFuture<Void> done = new CompletableFuture<>();
-        session.unloading = done;
         Runnable save = () -> {
             Map<CachedObject<?>, Map<String, Value>> finals = new HashMap<>();
             for (CachedObject<?> obj : session.all()) {
@@ -325,10 +323,10 @@ public final class LeonsDBService implements LeonsDBProvider {
         };
         // A transaction in progress changes the cached data when it commits;
         // the final snapshot must include that, or saving it would undo it.
-        if (!session.whenNoTransactions(() -> platform.runOnMainThread(save, Duration.ZERO))) {
-            save.run();
-        }
-        return done;
+        // The last transaction to end may do so on another thread, so the
+        // snapshot is then taken on the player's.
+        CompletableFuture<Void> already = session.startUnloading(done, () -> onPlayerThreadNow(uuid, save));
+        return already != null ? already : done;
     }
 
     private void saveUntilDone(PlayerSession session, Map<CachedObject<?>, Map<String, Value>> finals,
@@ -364,24 +362,37 @@ public final class LeonsDBService implements LeonsDBProvider {
 
     /**
      * Saves what changed since the last tick for every online player. Call
-     * periodically (about once per second) on the main thread.
+     * periodically (about once per second) on the main thread. Players whose
+     * data belongs to another thread (Folia regions) are saved on theirs.
      */
     public void flushTick() {
         for (PlayerSession session : sessions.values()) {
             if (session.isUnloading() || session.lost) {
                 continue;
             }
-            for (CachedObject<?> obj : session.all()) {
-                try {
-                    Map<String, Value> snap = obj.snapshot();
-                    if (obj.schema().hasTransactional()) {
-                        warnIfTransactionalChanged(obj, snap);
-                    }
-                    obj.submit(snap, null);
-                } catch (IllegalArgumentException e) {
-                    log.log(Level.SEVERE, "Cannot save " + obj.schema().type().getSimpleName() + " of " + session.uuid
-                            + ": " + e.getMessage());
+            if (platform.isPlayerThread(session.uuid)) {
+                flush(session);
+            } else {
+                platform.runForPlayer(session.uuid, () -> flush(session), Duration.ZERO);
+            }
+        }
+    }
+
+    /** Saves what changed of one player. On the player's thread. */
+    private void flush(PlayerSession session) {
+        if (session.isUnloading() || session.lost || sessions.get(session.uuid) != session) {
+            return;
+        }
+        for (CachedObject<?> obj : session.all()) {
+            try {
+                Map<String, Value> snap = obj.snapshot();
+                if (obj.schema().hasTransactional()) {
+                    warnIfTransactionalChanged(obj, snap);
                 }
+                obj.submit(snap, null);
+            } catch (IllegalArgumentException e) {
+                log.log(Level.SEVERE, "Cannot save " + obj.schema().type().getSimpleName() + " of " + session.uuid
+                        + ": " + e.getMessage());
             }
         }
     }
@@ -480,12 +491,12 @@ public final class LeonsDBService implements LeonsDBProvider {
         if (session.isUnloading()) {
             return; // the player is leaving anyway; release follows the save
         }
-        platform.runOnMainThread(() -> {
+        platform.runForPlayer(uuid, () -> {
             if (sessions.get(uuid) != session || session.isUnloading()) {
                 return;
             }
             log.info("Handing " + uuid + " over to another server.");
-            unloadPlayer(uuid).thenRun(() -> platform.runOnMainThread(() -> {
+            unloadPlayer(uuid).thenRun(() -> platform.runForPlayer(uuid, () -> {
                 // A normal server switch has moved the player on by now. If
                 // they are still here, they logged in somewhere else.
                 if (platform.isOnline(uuid) && !isLoaded(uuid)) {
@@ -493,6 +504,20 @@ public final class LeonsDBService implements LeonsDBProvider {
                 }
             }, settings.handoverGrace()));
         }, Duration.ZERO);
+    }
+
+    /**
+     * A proxy says the player is about to switch to another server: save
+     * their changes now, so the handover that follows has little left to
+     * write. Only a hint: the player stays ours, and their changes keep
+     * being saved, until the other server actually asks for them.
+     */
+    private void onSwitchExpected(UUID uuid) {
+        PlayerSession session = sessions.get(uuid);
+        if (session == null || session.isUnloading() || session.lost) {
+            return;
+        }
+        platform.runForPlayer(uuid, () -> flush(session), Duration.ZERO);
     }
 
     /**
@@ -533,7 +558,7 @@ public final class LeonsDBService implements LeonsDBProvider {
         if (session.unloading != null) {
             session.unloading.complete(null);
         }
-        platform.runOnMainThread(() -> {
+        platform.runForPlayer(uuid, () -> {
             if (platform.isOnline(uuid)) {
                 platform.disconnect(uuid, message);
             }
@@ -604,6 +629,27 @@ public final class LeonsDBService implements LeonsDBProvider {
         return participant.pending();
     }
 
+    /**
+     * Runs a task on the thread that may touch the player's data; during
+     * shutdown, which blocks it, right away.
+     */
+    void onPlayerThread(UUID uuid, Runnable task) {
+        if (shutDown) {
+            task.run();
+        } else {
+            platform.runForPlayer(uuid, task, Duration.ZERO);
+        }
+    }
+
+    /** Like {@link #onPlayerThread}, but at once when already on that thread. */
+    void onPlayerThreadNow(UUID uuid, Runnable task) {
+        if (shutDown || platform.isPlayerThread(uuid)) {
+            task.run();
+        } else {
+            platform.runForPlayer(uuid, task, Duration.ZERO);
+        }
+    }
+
     /** @return true once shutdown has begun */
     boolean isShutDown() {
         return shutDown;
@@ -622,9 +668,10 @@ public final class LeonsDBService implements LeonsDBProvider {
         return new ArrayList<>(s.all());
     }
 
-    void requireMainThread(String what) {
-        if (!platform.isMainThread()) {
-            throw new IllegalStateException(what + " must be called on the main thread");
+    void requirePlayerThread(UUID uuid, String what) {
+        if (!platform.isPlayerThread(uuid)) {
+            throw new IllegalStateException(what + " must be called on the main thread (on Folia: the thread of the "
+                    + "player's region)");
         }
     }
 

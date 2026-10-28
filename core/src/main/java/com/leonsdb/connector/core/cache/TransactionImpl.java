@@ -215,17 +215,36 @@ final class TransactionImpl implements Transaction {
         for (Part<?> p : cached) {
             reserved = reserved.thenCompose(x -> p.cached.reserve());
         }
-        reserved.thenRun(() -> onMainThread(() -> {
-            try {
-                for (Part<?> p : cached) {
-                    p.snapshot = p.cached.snapshot();
+        reserved.thenRun(() -> onMainThread(() -> onPlayerThreads(cached, p -> p.snapshot = p.cached.snapshot())
+                .whenComplete((ok, err) -> {
+                    if (err != null) {
+                        fail(unwrap(err));
+                    } else {
+                        attempt(n);
+                    }
+                })));
+    }
+
+    /**
+     * Runs an action for each part on the thread that may touch its
+     * player's data (Folia: the player's region), and completes once all
+     * have run. On Paper, called on the main thread, they all run at once.
+     */
+    private CompletableFuture<Void> onPlayerThreads(List<Part<?>> ps, Consumer<Part<?>> action) {
+        List<CompletableFuture<Void>> done = new ArrayList<>();
+        for (Part<?> p : ps) {
+            CompletableFuture<Void> f = new CompletableFuture<>();
+            done.add(f);
+            service.onPlayerThreadNow(p.player, () -> {
+                try {
+                    action.accept(p);
+                    f.complete(null);
+                } catch (RuntimeException e) {
+                    f.completeExceptionally(e);
                 }
-            } catch (RuntimeException e) {
-                fail(e);
-                return;
-            }
-            attempt(n);
-        }));
+            });
+        }
+        return CompletableFuture.allOf(done.toArray(new CompletableFuture<?>[0]));
     }
 
     @SuppressWarnings("unchecked")
@@ -238,9 +257,11 @@ final class TransactionImpl implements Transaction {
         if (obj == null) {
             throw new DataNotLoadedException(p.schema.type().getSimpleName() + " of player " + p.player + " is not loaded yet");
         }
+        if (!session.beginTransaction()) {
+            return false; // leaving after all: the server decides, as for offline players
+        }
         p.cached = obj;
         p.session = session;
-        session.beginTransaction();
         return true;
     }
 
@@ -386,32 +407,42 @@ final class TransactionImpl implements Transaction {
                 p.cached.committed(p.after, resp.getResults(i).getVersion());
             }
         }
-        Runnable finish = () -> {
-            for (Part<?> p : parts) {
-                if (p.cached == null) {
-                    continue;
-                }
-                boolean changed = sent.contains(p);
-                try {
-                    if (changed) {
-                        applyToCache(p);
-                    }
-                } catch (RuntimeException e) {
-                    log.log(Level.SEVERE, "Could not update the cached " + p.describe() + " after a transaction", e);
-                } finally {
-                    p.cached.release(changed);
-                    p.session.endTransaction();
-                }
+        List<Part<?>> cached = new ArrayList<>();
+        for (Part<?> p : parts) {
+            if (p.cached != null) {
+                cached.add(p);
             }
+        }
+        Runnable done = () -> {
             if (!result.complete(null)) {
                 log.info("A transaction that could not be confirmed in time has now been stored.");
             }
         };
-        onMainThread(finish);
+        // Each player's cached data is updated on their thread; the plugin
+        // hears of it, on the main thread, once all of it is.
+        onMainThread(() -> onPlayerThreads(cached, p -> {
+            boolean changed = sent.contains(p);
+            try {
+                if (changed) {
+                    applyToCache(p);
+                }
+            } catch (RuntimeException e) {
+                log.log(Level.SEVERE, "Could not update the cached " + p.describe() + " after a transaction", e);
+            } finally {
+                p.cached.release(changed);
+                p.session.endTransaction();
+            }
+        }).whenComplete((ok, err) -> {
+            if (platform.isMainThread() || service.isShutDown()) {
+                done.run();
+            } else {
+                onMainThread(done);
+            }
+        }));
     }
 
     /**
-     * Main thread: brings the transaction's changes into the cached object.
+     * The player's thread: brings the transaction's changes into the cached object.
      * The object may have changed since the snapshot (the game kept
      * running): numbers get the transaction's difference added, so both
      * changes count; other fields take the transaction's value.

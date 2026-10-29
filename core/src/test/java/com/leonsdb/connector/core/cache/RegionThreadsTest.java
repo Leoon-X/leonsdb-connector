@@ -262,7 +262,8 @@ class RegionThreadsTest {
         server.requestHandover(ref(alice).getPlayer());
         await(() -> "other-server".equals(server.ownerOf(ref(alice).getPlayer())), "handed over");
         assertEquals(8, stored(alice));
-        await(() -> platform.disconnected().containsKey(alice), "disconnected after the grace period");
+        server.joinedThere(ref(alice).getPlayer());
+        await(() -> platform.disconnected().containsKey(alice), "disconnected once they joined there");
     }
 
     @Test

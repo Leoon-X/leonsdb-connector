@@ -402,6 +402,10 @@ public final class LeonsDBService implements LeonsDBProvider {
                     log.log(Level.SEVERE, "Cannot save " + obj.schema().type().getSimpleName() + " of " + uuid + ": " + e.getMessage());
                 }
             }
+            long[] t = session.timing;
+            if (t != null) {
+                t[2] = System.nanoTime();
+            }
             session.finals = finals;
             saveUntilDone(session, finals, done);
         };
@@ -439,7 +443,17 @@ public final class LeonsDBService implements LeonsDBProvider {
                 // The player has left only once released: until then a rejoin
                 // waits, so it cannot overtake the release and be granted the
                 // old epoch, which the late release would end.
+                long[] t = session.timing;
+                if (t != null) {
+                    t[3] = System.nanoTime();
+                }
                 leases.release(session.uuid).thenRun(() -> {
+                    if (t != null) {
+                        log.info(String.format(java.util.Locale.ROOT, "HANDOVER %s at %d: queued %.1f ms, snapshot %.1f ms, "
+                                + "saved %.1f ms, released %.1f ms, total %.1f ms", session.uuid, t[5], (t[1] - t[0]) / 1e6,
+                                (t[2] - t[1]) / 1e6, (t[3] - t[2]) / 1e6, (System.nanoTime() - t[3]) / 1e6,
+                                (System.nanoTime() - t[0]) / 1e6));
+                    }
                     boolean late = false;
                     if (session.handover && !shutDown) {
                         if (session.left) {
@@ -599,8 +613,13 @@ public final class LeonsDBService implements LeonsDBProvider {
     // --- Ownership events --------------------------------------------------
 
     /** Another server is waiting for one of our players: save and hand over. */
+    /** -Dleonsdb.debug.handovers=true logs how long each step of a handover took. */
+    private static final boolean DEBUG_HANDOVERS = Boolean.getBoolean("leonsdb.debug.handovers");
+
     private void onHandoverRequested(UUID uuid) {
         PlayerSession session = sessions.get(uuid);
+        long received = System.nanoTime();
+        long receivedAt = System.currentTimeMillis();
         if (session == null) {
             // Nothing in memory (for example a login that was refused after
             // the lease was taken): just let go.
@@ -613,6 +632,9 @@ public final class LeonsDBService implements LeonsDBProvider {
         platform.runForPlayer(uuid, () -> {
             if (sessions.get(uuid) != session || session.isUnloading()) {
                 return;
+            }
+            if (DEBUG_HANDOVERS) {
+                session.timing = new long[] {received, System.nanoTime(), 0, 0, 0, receivedAt};
             }
             log.info("Handing " + uuid + " over to another server.");
             unload(uuid, true).thenRun(() -> {

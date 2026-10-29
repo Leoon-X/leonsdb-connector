@@ -655,6 +655,54 @@ class PlayerCacheTest {
     }
 
     @Test
+    void aPlayerWhoLeavesWhileTheirHandoverIsSavedLeavesNothingBehind() throws Exception {
+        server.put(ref(steve), Map.of("kills", Value.newBuilder().setIntValue(10).build()));
+        service.loadPlayer(steve);
+        platform.online.add(steve);
+        server.ownersApplyOwnerOps = true;
+        server.holdReleases = new CountDownLatch(1);
+        server.nextOwnerOnRelease = "other-server";
+        server.requestHandover(playerBytes());
+        Thread.sleep(150); // saved; the release waits
+
+        // The proxy moves the player on before the release is done; the quit event runs.
+        stats().kills = 11;
+        platform.online.remove(steve);
+        service.unloadPlayer(steve);
+        server.holdReleases.countDown();
+
+        await(() -> storedInt("kills") == 11, "the quit-time change followed the player");
+        assertFalse(service.isHandedOver(steve), "nothing is left marked as handed over");
+    }
+
+    @Test
+    void anEarlierVisitsWaitNeverDisconnectsAPlayerWhoCameBack() throws Exception {
+        // The grace period here is 200 ms (TestPlatform).
+        service.loadPlayer(steve);
+        platform.online.add(steve);
+        server.holdTakeBacks = new CountDownLatch(1);
+        server.nextOwnerOnRelease = "other-server";
+        server.requestHandover(playerBytes());
+        await(() -> "other-server".equals(server.ownerOf(playerBytes())), "handed over");
+        long first = System.nanoTime();
+
+        // The player came back before this server noticed they had left.
+        server.letGo(playerBytes());
+        service.loadPlayer(steve);
+        assertFalse(service.isHandedOver(steve), "the earlier visit is over");
+
+        // They switch away again, and that switch takes a while.
+        server.holdReleases = new CountDownLatch(1);
+        server.nextOwnerOnRelease = "other-server";
+        server.requestHandover(playerBytes());
+        long waited = (System.nanoTime() - first) / 1_000_000;
+        Thread.sleep(Math.max(0, 300 - waited)); // past the first switch's wait
+        assertFalse(platform.disconnected.containsKey(steve), "not disconnected by the earlier visit's wait");
+        server.holdReleases.countDown();
+        server.holdTakeBacks.countDown();
+    }
+
+    @Test
     void nothingIsSentWhenNothingChangedAfterTheHandover() throws Exception {
         handOver();
         int transacts = server.transacts.size();

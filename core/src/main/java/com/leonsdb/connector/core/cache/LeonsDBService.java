@@ -317,6 +317,12 @@ public final class LeonsDBService implements LeonsDBProvider {
             throw new LeonsDBException("Interrupted while loading player data", e);
         }
         sessions.put(uuid, session);
+        // Still marked as handed over from an earlier visit: the player left
+        // and came back before that was noticed. That visit is over now.
+        PlayerSession stale = handedOver.remove(uuid);
+        if (stale != null) {
+            sendLateChanges(stale);
+        }
     }
 
     /** @return the registered player collections, as "namespace.collection" */
@@ -396,6 +402,11 @@ public final class LeonsDBService implements LeonsDBProvider {
         // the final snapshot must include that, or saving it would undo it.
         // The last transaction to end may do so on another thread, so the
         // snapshot is then taken on the player's.
+        if (!handover && session.handover) {
+            // The player left while their handover is still being saved: once it
+            // is, what they changed meanwhile goes after them (see saveUntilDone).
+            session.left = true;
+        }
         CompletableFuture<Void> already = session.startUnloading(done, () -> onPlayerThreadNow(uuid, save));
         return already != null ? already : done;
     }
@@ -422,11 +433,19 @@ public final class LeonsDBService implements LeonsDBProvider {
                 // waits, so it cannot overtake the release and be granted the
                 // old epoch, which the late release would end.
                 leases.release(session.uuid).thenRun(() -> {
+                    boolean late = false;
                     if (session.handover && !shutDown) {
-                        // Still usable here until the player leaves (see unload).
-                        handedOver.put(session.uuid, session);
+                        if (session.left) {
+                            late = true; // already gone: nothing to keep here
+                        } else {
+                            // Still usable here until the player leaves (see unload).
+                            handedOver.put(session.uuid, session);
+                        }
                     }
                     sessions.remove(session.uuid, session);
+                    if (late) {
+                        sendLateChanges(session);
+                    }
                     done.complete(null);
                 });
             } else {
@@ -601,7 +620,7 @@ public final class LeonsDBService implements LeonsDBProvider {
                     // switch would have completed or failed: they logged in
                     // somewhere else. Only for this handover: after a take-back
                     // and another switch, that one has its own wait.
-                    if (handedOver.get(uuid) == session && platform.isOnline(uuid) && !isLoaded(uuid)) {
+                    if (handedOver.get(uuid) == session && !session.left && platform.isOnline(uuid) && !isLoaded(uuid)) {
                         platform.disconnect(uuid, "You joined from another server.");
                     }
                 }, settings.handoverGrace());
@@ -1018,6 +1037,11 @@ public final class LeonsDBService implements LeonsDBProvider {
     /** @return true once shutdown has begun */
     boolean isShutDown() {
         return shutDown;
+    }
+
+    /** For tests: whether the player is marked as handed over and still here. */
+    boolean isHandedOver(UUID uuid) {
+        return handedOver.containsKey(uuid);
     }
 
     /** Whether this server owns the player and has their data. */

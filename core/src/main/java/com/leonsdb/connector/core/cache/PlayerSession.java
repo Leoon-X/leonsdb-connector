@@ -35,6 +35,9 @@ final class PlayerSession {
      */
     volatile Map<CachedObject<?>, Map<String, com.leonsdb.proto.v1.Value>> finals;
 
+    /** Set when the player left while their handover was still being saved. */
+    volatile boolean left;
+
     /** Set when the player is handed over to another server rather than leaving. */
     volatile boolean handover;
 

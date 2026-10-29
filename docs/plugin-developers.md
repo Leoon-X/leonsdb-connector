@@ -98,6 +98,49 @@ To save everything of a player immediately (for example before
 transferring them to another server), call `save()`; it returns a future
 too.
 
+### Server switches and quit events
+
+On a network, a player's data goes to the new server **before** the old
+server's `PlayerQuitEvent` fires: the proxy only lets go of the player once
+the new server has them, and the new server only lets them in with their
+data. Changes made in the quit event are still kept. Until the player
+leaves the old server, their data stays usable there, and whatever changes
+in it (in the quit event or just before) follows them to the new server:
+numbers by their difference, so changes on both servers count, other
+fields by their new value. It is applied exactly once, also if LeonsDB is
+briefly unreachable. `update` and `save` there complete once it is stored.
+
+**The trade-off:** such a change reaches the new server **a moment after
+the player joined it**: once the old server's quit event has run, which
+the proxy triggers after the join. The new server's join event still sees
+the value from before. If something must be there from the first moment, for example a
+location that the next server's join event reads, set it in a handover
+listener instead. It runs on the player's thread right before their data is
+handed over, so what it changes is part of what the new server loads:
+
+```java
+private Registration handover;
+
+@Override
+public void onEnable() {
+    handover = LeonsDB.onHandover(uuid -> {
+        Player player = Bukkit.getPlayer(uuid);
+        if (player != null) {
+            LeonsDB.player(uuid).get(Stats.class).lastLocation = player.getLocation();
+        }
+    });
+}
+
+@Override
+public void onDisable() {
+    handover.close();
+}
+```
+
+The listener only runs for server switches; when a player simply leaves,
+the quit event is the place, and it is saved before anything else can load
+the player.
+
 ## Global data
 
 Data that does not belong to one player (clans, bans, settings) lives in
@@ -320,7 +363,8 @@ or `String`. A null field is stored as "no value".
 | LeonsDB goes down while players are online | Players keep playing. Changes stay in memory and are saved as soon as LeonsDB is back. |
 | A player rejoins before their data finished saving | The join waits for the save (and for the hand-back of ownership), so it never loads outdated data. |
 | A player switches servers | The old server saves the player's latest data and hands them over; the new server loads it. It takes milliseconds: a Paper server saves as soon as its main thread is idle, without waiting for its next tick (it logs this at startup; start it with `-Dleonsdb.idleQueue=false` to wait for the tick instead). Folia saves at the player's next region tick. |
-| A player is logged in on two servers at once | Only one server owns their data. The other one hands over and disconnects them, so nothing can be duplicated. |
+| A player's server switch fails (the new server refuses them or never lets them in) | They stay where they are, and get their data back as soon as the new server lets go, usually within milliseconds. Your plugin's data objects stay the same objects, and nothing changed meanwhile is lost. |
+| A player is logged in on two servers at once | Only one server owns their data. The other one hands over and, if the player is still there 35 seconds later (`handover-grace-ms`), disconnects them, so nothing can be duplicated. |
 | A Minecraft server crashes with players online | Their ownership expires after about 10 seconds; then they can join another server with their last saved data. |
 | The Minecraft server stops | Everything is saved first. If LeonsDB cannot be reached within 10 seconds, unsaved changes are written to `plugins/LeonsDB/recovery/`. |
 | The Minecraft server crashes | Changes from the last moment (up to about one second) may be lost. Changes made with `update` were already confirmed. |

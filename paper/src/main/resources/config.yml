@@ -33,6 +33,10 @@ server-name: ""
 # How long a joining player may wait for that, in milliseconds.
 lease-wait-ms: 10000
 
-# After handing a player over, how long they may stay on this server before
-# being disconnected (normally the proxy has moved them within a second).
-handover-grace-ms: 5000
+# After handing a player over for a server switch, they stay here until the
+# proxy has moved them. If the switch fails, they are taken back, with their
+# data, as soon as the other server lets go. A player still here this long
+# after the handover, while another server keeps their data, logged in
+# somewhere else and is disconnected. In milliseconds; keep it longer than
+# your proxy's read timeout (Velocity: 30 seconds).
+handover-grace-ms: 35000

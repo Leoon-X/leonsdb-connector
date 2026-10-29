@@ -320,12 +320,106 @@ class RealServerTest {
 
             assertEquals(10, survival.player(uuid).get(Stats.class).kills, "the lobby saved before handing over");
             assertTrue(millis < 1500, "handover took " + millis + " ms; it must not wait for the lease to expire");
-            assertFalse(lobby.player(uuid).isLoaded());
+            assertFalse(lobby.ownsPlayer(uuid));
             lobbyPlatform.online.remove(uuid); // the proxy moved the player
 
             // The new owner saves normally.
             survival.player(uuid).get(Stats.class).kills++;
             survival.player(uuid).save().get(5, TimeUnit.SECONDS);
+            lobby.shutdown(Duration.ofSeconds(1));
+            survival.shutdown(Duration.ofSeconds(1));
+        }
+    }
+
+    @Test
+    void changesInTheQuitEventReachTheNewServersLiveData() throws Exception {
+        UUID uuid = UUID.randomUUID();
+        try (var lobbyClient = client(); var survivalClient = client()) {
+            var lobbyPlatform = new TestPlatform();
+            var lobby = TestPlatform.service(lobbyClient, Logger.getLogger("lobby"), lobbyPlatform, dataDir.resolve("r1"));
+            lobby.register(Stats.class);
+            var survival = service(survivalClient, Stats.class);
+
+            lobby.loadPlayer(uuid);
+            lobbyPlatform.online.add(uuid);
+            lobby.player(uuid).get(Stats.class).kills = 10;
+
+            survival.loadPlayer(uuid); // the switch: survival has the player now
+            Stats there = survival.player(uuid).get(Stats.class);
+            assertEquals(10, there.kills);
+            there.kills++; // a kill on survival, not saved yet
+
+            // The proxy disconnects the player from the lobby; its quit event runs.
+            lobbyPlatform.online.remove(uuid);
+            Stats leaving = lobby.player(uuid).get(Stats.class);
+            leaving.kills += 2;
+            leaving.title = "Veteran";
+            lobby.unloadPlayer(uuid).get(10, TimeUnit.SECONDS);
+
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (!"Veteran".equals(there.title) && System.nanoTime() < deadline) {
+                Thread.sleep(5);
+            }
+            assertEquals("Veteran", there.title, "the quit-time change reached survival's live data");
+            assertEquals(13, there.kills, "both servers' kills count");
+            survival.player(uuid).save().get(5, TimeUnit.SECONDS);
+            survival.unloadPlayer(uuid).get(5, TimeUnit.SECONDS);
+            survival.loadPlayer(uuid);
+            assertEquals(13, survival.player(uuid).get(Stats.class).kills, "and it is stored");
+            assertEquals("Veteran", survival.player(uuid).get(Stats.class).title);
+            lobby.shutdown(Duration.ofSeconds(1));
+            survival.shutdown(Duration.ofSeconds(1));
+        }
+    }
+
+    @Test
+    void aPlayerWhoseSwitchFailedIsTakenBackWithEveryChange() throws Exception {
+        UUID uuid = UUID.randomUUID();
+        try (var lobbyClient = client(); var survivalClient = client()) {
+            var lobbyPlatform = new TestPlatform();
+            // The grace a switch has before the player counts as logged in elsewhere.
+            var lobby = new LeonsDBService(lobbyClient, com.leonsdb.connector.core.schema.Codecs.withDefaults(),
+                    Logger.getLogger("lobby"), lobbyPlatform, new LeonsDBService.Settings("lobby", Duration.ofSeconds(5),
+                    Duration.ofSeconds(5), Duration.ofSeconds(35), dataDir.resolve("r1")));
+            lobby.start();
+            lobby.register(Stats.class);
+            var survival = service(survivalClient, Stats.class);
+
+            lobby.loadPlayer(uuid);
+            lobbyPlatform.online.add(uuid);
+            Stats kept = lobby.player(uuid).get(Stats.class);
+            kept.kills = 10;
+
+            survival.loadPlayer(uuid); // the switch takes the player
+            survival.player(uuid).get(Stats.class).title = "Visitor";
+            survival.player(uuid).save().get(5, TimeUnit.SECONDS);
+            kept.kills++; // meanwhile, still on the lobby
+            Thread.sleep(300);
+            assertFalse(lobby.ownsPlayer(uuid), "the lobby never takes the player from a switch in progress");
+            assertTrue(survival.player(uuid).isLoaded());
+
+            // Survival refuses the login after all: it lets go, and the lobby,
+            // where the player still is, takes them back.
+            long start = System.nanoTime();
+            survival.unloadPlayer(uuid).get(5, TimeUnit.SECONDS);
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (!lobby.ownsPlayer(uuid) && System.nanoTime() < deadline) {
+                Thread.sleep(2);
+            }
+            long millis = (System.nanoTime() - start) / 1_000_000;
+            assertTrue(lobby.ownsPlayer(uuid), "taken back");
+            assertTrue(millis < 1000, "taking back took " + millis + " ms");
+            Stats back = lobby.player(uuid).get(Stats.class);
+            assertTrue(back == kept, "plugins keep the same object");
+            assertEquals(11, back.kills, "the kill made on the lobby meanwhile is kept");
+            assertEquals("Visitor", back.title, "survival's change is merged in");
+            lobby.player(uuid).save().get(5, TimeUnit.SECONDS);
+
+            // Saved with the new ownership; the next switch works as usual.
+            survival.loadPlayer(uuid);
+            assertEquals(11, survival.player(uuid).get(Stats.class).kills);
+            assertEquals("Visitor", survival.player(uuid).get(Stats.class).title);
+            lobbyPlatform.online.remove(uuid);
             lobby.shutdown(Duration.ofSeconds(1));
             survival.shutdown(Duration.ofSeconds(1));
         }

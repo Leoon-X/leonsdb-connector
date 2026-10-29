@@ -79,6 +79,19 @@ public final class FakeServer implements AutoCloseable {
     public volatile java.util.concurrent.CountDownLatch holdReleases;
     /** Behave like a server from before 0.9: ignore the load of Acquire. */
     public volatile boolean oldServer;
+    /**
+     * Apply a transaction's owner operations to a player another server owns,
+     * as if that server applied them to its live data and saved them.
+     */
+    public volatile boolean ownersApplyOwnerOps;
+    /** Behave like a server from before 0.10: no TakeBack. */
+    public volatile boolean noTakeBack;
+    /** Hold TakeBack calls until released. */
+    public volatile java.util.concurrent.CountDownLatch holdTakeBacks;
+    /** TakeBack calls so far. */
+    public final java.util.concurrent.atomic.AtomicInteger takeBacks = new java.util.concurrent.atomic.AtomicInteger();
+    /** Who gets a player the moment its owner releases it (the server it switches to), or null. */
+    public volatile String nextOwnerOnRelease;
     /** Reads of single records (Get calls). */
     public final java.util.concurrent.atomic.AtomicInteger gets = new java.util.concurrent.atomic.AtomicInteger();
     private final Map<ByteString, TransactResponse> committedTransactions = new HashMap<>();
@@ -129,6 +142,19 @@ public final class FakeServer implements AutoCloseable {
         }
         if (notify) {
             send(LeaseEvent.Kind.KIND_LOST, player);
+        }
+    }
+
+    /**
+     * Whoever owns the player lets go, as another server does when a
+     * player's login there fails.
+     *
+     * @param player 16-byte UUID
+     */
+    public synchronized void letGo(ByteString player) {
+        Lease l = leases.get(player);
+        if (l != null) {
+            l.holder = null;
         }
     }
 
@@ -345,6 +371,9 @@ public final class FakeServer implements AutoCloseable {
                     for (int i = 0; i < req.getWritesCount(); i++) {
                         TransactionWrite w = req.getWrites(i);
                         String refused = refusal(w.getRef(), w.getEpoch());
+                        if ("PLAYER_ONLINE".equals(refused) && ownersApplyOwnerOps && w.getOwnerOperationsCount() > 0) {
+                            refused = null;
+                        }
                         if (refused == null && w.hasExpectedVersion()) {
                             Stored s = records.get(w.getRef());
                             if ((s == null ? 0 : s.version) != w.getExpectedVersion()) {
@@ -362,7 +391,8 @@ public final class FakeServer implements AutoCloseable {
                     }
                     TransactResponse.Builder out = TransactResponse.newBuilder();
                     for (TransactionWrite w : req.getWritesList()) {
-                        out.addResults(TransactionResult.newBuilder().setVersion(store(w.getRef(), w.getOperationsList())));
+                        boolean toOwner = ownersApplyOwnerOps && w.getOwnerOperationsCount() > 0 && "PLAYER_ONLINE".equals(refusal(w.getRef(), w.getEpoch()));
+                        out.addResults(TransactionResult.newBuilder().setVersion(store(w.getRef(), toOwner ? w.getOwnerOperationsList() : w.getOperationsList())));
                     }
                     resp = out.build();
                     committedTransactions.put(req.getTransactionId(), resp);
@@ -432,6 +462,46 @@ public final class FakeServer implements AutoCloseable {
         }
 
         @Override
+        public void takeBack(AcquireLeaseRequest req, StreamObserver<AcquireLeaseResponse> obs) {
+            takeBacks.incrementAndGet();
+            var hold = holdTakeBacks;
+            if (hold != null) {
+                try {
+                    hold.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            if (noTakeBack) {
+                obs.onError(Status.UNIMPLEMENTED.asRuntimeException());
+                return;
+            }
+            // Never disturbs the owner: waits a little for the player to be free.
+            long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(Math.min(req.getWaitMs(), 100));
+            while (true) {
+                synchronized (FakeServer.this) {
+                    Lease l = leases.get(req.getPlayer());
+                    if (l == null || l.holder == null || l.holder.equals(req.getHolderId())) {
+                        break;
+                    }
+                }
+                if (System.nanoTime() > deadline) {
+                    Metadata trailers = new Metadata();
+                    trailers.put(Metadata.Key.of("leonsdb-error-reason", Metadata.ASCII_STRING_MARSHALLER), "OWNED_ELSEWHERE");
+                    obs.onError(Status.FAILED_PRECONDITION.withDescription("still owned").asRuntimeException(trailers));
+                    return;
+                }
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+            acquire(req, obs);
+        }
+
+        @Override
         public void renew(RenewLeasesRequest req,
                           StreamObserver<RenewLeasesResponse> obs) {
             obs.onNext(RenewLeasesResponse.newBuilder().setTtlMs(10_000).build());
@@ -455,6 +525,12 @@ public final class FakeServer implements AutoCloseable {
                 if (l != null && req.getHolderId().equals(l.holder) && l.epoch == req.getEpoch()) {
                     l.holder = null;
                     released = true;
+                    String next = nextOwnerOnRelease;
+                    if (next != null) {
+                        nextOwnerOnRelease = null;
+                        l.holder = next;
+                        l.epoch++;
+                    }
                 }
             }
             obs.onNext(ReleaseLeaseResponse.newBuilder().setReleased(released).build());

@@ -130,6 +130,23 @@ final class LeaseKeeper {
     }
 
     /**
+     * Takes back a player handed over for a switch that did not complete,
+     * once nobody owns them (see {@link LeonsDBClient#takeBackLease}).
+     *
+     * @param uuid the player
+     * @param wait how long to wait for the player to be free
+     * @param load collections to read, as "namespace.collection"
+     * @return completes with the answer, or fails if the player is not free
+     */
+    java.util.concurrent.CompletableFuture<com.leonsdb.proto.v1.AcquireLeaseResponse> takeBack(
+            UUID uuid, Duration wait, java.util.List<String> load) {
+        return client.takeBackLease(bytes(uuid), holderId, holderName, wait.toMillis(), load).thenApply(resp -> {
+            held.put(uuid, resp.getEpoch());
+            return resp;
+        });
+    }
+
+    /**
      * Gives up ownership once the player's data is saved. Failures are only
      * logged: an unreleased lease simply expires.
      *

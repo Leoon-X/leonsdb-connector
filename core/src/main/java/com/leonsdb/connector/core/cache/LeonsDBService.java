@@ -8,13 +8,16 @@ import com.google.protobuf.TextFormat;
 import com.leonsdb.connector.api.Channel;
 import com.leonsdb.connector.api.DataNotLoadedException;
 import com.leonsdb.connector.api.GlobalCollection;
+import com.leonsdb.connector.api.HandoverListener;
 import com.leonsdb.connector.api.History;
 import com.leonsdb.connector.api.Leaderboard;
 import com.leonsdb.connector.api.LeonsDBException;
 import com.leonsdb.connector.api.LeonsDBProvider;
 import com.leonsdb.connector.api.PlayerHandle;
+import com.leonsdb.connector.api.Registration;
 import com.leonsdb.connector.api.Transaction;
 import com.leonsdb.connector.core.LeonsDBClient;
+import com.leonsdb.connector.core.RequestException;
 import com.leonsdb.connector.core.schema.ClassSchema;
 import com.leonsdb.connector.core.schema.Codecs;
 import com.leonsdb.proto.v1.ApplyRequest;
@@ -96,6 +99,8 @@ public final class LeonsDBService implements LeonsDBProvider {
 
     private static final Duration REGISTER_TIMEOUT = Duration.ofSeconds(15);
     private static final Duration UNLOAD_RETRY = Duration.ofSeconds(2);
+    private static final Duration TAKE_BACK_WAIT = Duration.ofSeconds(5);
+    private static final Duration TAKE_BACK_RETRY = Duration.ofSeconds(1);
 
     private final LeonsDBClient client;
     private final Codecs codecs;
@@ -105,6 +110,14 @@ public final class LeonsDBService implements LeonsDBProvider {
 
     private final Map<Class<?>, ClassSchema<?>> schemas = new ConcurrentHashMap<>();
     private final Map<UUID, PlayerSession> sessions = new ConcurrentHashMap<>();
+    /** Players handed over to another server who are still here, until they leave or are taken back. */
+    private final Map<UUID, PlayerSession> handedOver = new ConcurrentHashMap<>();
+    /** Players whose login is loading their data right now. */
+    private final Set<UUID> loading = ConcurrentHashMap.newKeySet();
+    /** Ownerships being released after a take-back that came too late (see resume). */
+    private final Map<UUID, CompletableFuture<Void>> releasing = new ConcurrentHashMap<>();
+    private volatile boolean takeBackUnsupported;
+    private final List<HandoverListener> handoverListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
     private final Set<Class<?>> warnedTransactional = ConcurrentHashMap.newKeySet();
     private final ScheduledExecutorService background;
     private final LeaseKeeper leases;
@@ -212,6 +225,12 @@ public final class LeonsDBService implements LeonsDBProvider {
         return new LeaderboardImpl<>(schema, field, order, client);
     }
 
+    @Override
+    public Registration onHandover(HandoverListener listener) {
+        handoverListeners.add(listener);
+        return () -> handoverListeners.remove(listener);
+    }
+
     // --- Platform lifecycle ---------------------------------------------------
 
     /**
@@ -227,6 +246,28 @@ public final class LeonsDBService implements LeonsDBProvider {
      *                          overwrite the real data later
      */
     public void loadPlayer(UUID uuid) {
+        CompletableFuture<Void> released;
+        synchronized (loading) {
+            loading.add(uuid);
+            released = releasing.get(uuid);
+        }
+        try {
+            if (released != null) {
+                // An ownership this server let go of a moment ago (see resume):
+                // the release must be done before the player is acquired again.
+                try {
+                    released.get(settings.loadTimeout().toMillis(), TimeUnit.MILLISECONDS);
+                } catch (Exception e) {
+                    // it expires on its own; acquiring waits for that
+                }
+            }
+            load(uuid);
+        } finally {
+            loading.remove(uuid);
+        }
+    }
+
+    private void load(UUID uuid) {
         long deadline = System.nanoTime() + settings.loadTimeout().toNanos() + settings.leaseWait().toNanos();
 
         // If the player's previous session here is still being saved (a quick
@@ -243,13 +284,7 @@ public final class LeonsDBService implements LeonsDBProvider {
         }
 
         // Ownership and the player's records in one round trip.
-        List<String> collections = new ArrayList<>();
-        for (ClassSchema<?> schema : schemas.values()) {
-            if (schema.isPlayerData()) {
-                collections.add(schema.namespace() + "." + schema.collection());
-            }
-        }
-        var acquired = leases.acquire(uuid, settings.leaseWait(), collections);
+        var acquired = leases.acquire(uuid, settings.leaseWait(), playerCollections());
 
         PlayerSession session = new PlayerSession(uuid, acquired.getEpoch());
         List<CompletableFuture<Void>> loads = new ArrayList<>();
@@ -284,6 +319,17 @@ public final class LeonsDBService implements LeonsDBProvider {
         sessions.put(uuid, session);
     }
 
+    /** @return the registered player collections, as "namespace.collection" */
+    private List<String> playerCollections() {
+        List<String> collections = new ArrayList<>();
+        for (ClassSchema<?> schema : schemas.values()) {
+            if (schema.isPlayerData()) {
+                collections.add(schema.namespace() + "." + schema.collection());
+            }
+        }
+        return collections;
+    }
+
     /** Releases a player after a failed load, before the player can retry. */
     private void releaseNow(UUID uuid) {
         try {
@@ -301,16 +347,40 @@ public final class LeonsDBService implements LeonsDBProvider {
      * being owned by this server meanwhile, so no other server can load
      * outdated data.
      *
+     * <p>A player already handed over to another server (a server switch)
+     * leaves here a moment later. What changed in their data since the
+     * handover, for example in a quit event, is then sent after them.
+     *
      * @param uuid the player
      * @return completes when everything is saved and released
      */
     public CompletableFuture<Void> unloadPlayer(UUID uuid) {
+        return unload(uuid, false);
+    }
+
+    private CompletableFuture<Void> unload(UUID uuid, boolean handover) {
         PlayerSession session = sessions.get(uuid);
         if (session == null) {
-            return CompletableFuture.completedFuture(null);
+            PlayerSession old = handedOver.remove(uuid); // their switch went through
+            return old == null ? CompletableFuture.completedFuture(null) : sendLateChanges(old);
+        }
+        if (handover && !session.isUnloading()) {
+            session.handover = true;
         }
         CompletableFuture<Void> done = new CompletableFuture<>();
         Runnable save = () -> {
+            if (handover) {
+                session.handingOver = true;
+                for (HandoverListener l : handoverListeners) {
+                    try {
+                        l.beforeHandover(uuid);
+                    } catch (RuntimeException e) {
+                        log.log(Level.SEVERE, "A handover listener (" + l.getClass().getName() + ") failed for " + uuid
+                                + "; handing over anyway", e);
+                    }
+                }
+                session.handingOver = false;
+            }
             Map<CachedObject<?>, Map<String, Value>> finals = new HashMap<>();
             for (CachedObject<?> obj : session.all()) {
                 try {
@@ -319,6 +389,7 @@ public final class LeonsDBService implements LeonsDBProvider {
                     log.log(Level.SEVERE, "Cannot save " + obj.schema().type().getSimpleName() + " of " + uuid + ": " + e.getMessage());
                 }
             }
+            session.finals = finals;
             saveUntilDone(session, finals, done);
         };
         // A transaction in progress changes the cached data when it commits;
@@ -351,6 +422,10 @@ public final class LeonsDBService implements LeonsDBProvider {
                 // waits, so it cannot overtake the release and be granted the
                 // old epoch, which the late release would end.
                 leases.release(session.uuid).thenRun(() -> {
+                    if (session.handover && !shutDown) {
+                        // Still usable here until the player leaves (see unload).
+                        handedOver.put(session.uuid, session);
+                    }
                     sessions.remove(session.uuid, session);
                     done.complete(null);
                 });
@@ -456,13 +531,31 @@ public final class LeonsDBService implements LeonsDBProvider {
                 pending.add(w);
             }
         }
+        // Players handed over to another server who are still here: what
+        // changed since the handover follows them now.
+        Map<PlayerSession, List<LateChange<?>>> late = new HashMap<>();
+        for (PlayerSession old : List.copyOf(handedOver.values())) {
+            if (handedOver.remove(old.uuid, old)) {
+                List<LateChange<?>> changes = lateChangesOf(old);
+                late.put(old, changes);
+                deliverLate(old, changes, 0);
+                pending.add(old.lateChanges);
+            }
+        }
         boolean saved;
         try {
             CompletableFuture.allOf(pending.toArray(new CompletableFuture<?>[0])).get(timeout.toMillis(), TimeUnit.MILLISECONDS);
             log.info("All player data saved.");
             saved = true;
         } catch (Exception e) {
-            writeRecoveryFiles(finals);
+            Map<CachedObject<?>, List<com.leonsdb.proto.v1.Operation>> unsaved = new HashMap<>();
+            finals.forEach((obj, snap) -> unsaved.put(obj, obj.pendingOps(snap)));
+            late.forEach((old, changes) -> {
+                if (!old.lateChanges.isDone() || old.lateChanges.isCompletedExceptionally()) {
+                    changes.forEach(c -> unsaved.put(c.obj(), c.ops()));
+                }
+            });
+            writeRecoveryFiles(unsaved);
             saved = false;
         }
         // Release ownership so players can join another server right away.
@@ -496,14 +589,275 @@ public final class LeonsDBService implements LeonsDBProvider {
                 return;
             }
             log.info("Handing " + uuid + " over to another server.");
-            unloadPlayer(uuid).thenRun(() -> platform.runForPlayer(uuid, () -> {
-                // A normal server switch has moved the player on by now. If
-                // they are still here, they logged in somewhere else.
-                if (platform.isOnline(uuid) && !isLoaded(uuid)) {
-                    platform.disconnect(uuid, "You joined from another server.");
+            unload(uuid, true).thenRun(() -> {
+                if (session.lost || shutDown) {
+                    return;
                 }
-            }, settings.handoverGrace()));
+                // The proxy moves the player on once the other server has let
+                // them in. Until then, and if the switch fails, they stay here.
+                takeBack(session);
+                platform.runForPlayer(uuid, () -> {
+                    // Still here, and still owned elsewhere, long after any
+                    // switch would have completed or failed: they logged in
+                    // somewhere else. Only for this handover: after a take-back
+                    // and another switch, that one has its own wait.
+                    if (handedOver.get(uuid) == session && platform.isOnline(uuid) && !isLoaded(uuid)) {
+                        platform.disconnect(uuid, "You joined from another server.");
+                    }
+                }, settings.handoverGrace());
+            });
         }, Duration.ZERO);
+    }
+
+    /**
+     * A player handed over to another server is still here: the switch is
+     * still going on, or it failed. Waits for nobody to own the player, then
+     * takes them back. This never takes a player from a switch that is still
+     * going on (see {@link LeonsDBClient#takeBackLease}). Stops when the
+     * player leaves.
+     */
+    private void takeBack(PlayerSession old) {
+        UUID uuid = old.uuid;
+        if (shutDown || takeBackUnsupported || handedOver.get(uuid) != old) {
+            return;
+        }
+        if (!platform.isOnline(uuid)) {
+            if (handedOver.remove(uuid, old)) {
+                sendLateChanges(old); // left without a quit seen here
+            }
+            return;
+        }
+        leases.takeBack(uuid, TAKE_BACK_WAIT, playerCollections()).whenComplete((resp, err) -> {
+            if (err == null) {
+                onPlayerThread(uuid, () -> resume(old, resp));
+                return;
+            }
+            Throwable cause = err instanceof java.util.concurrent.CompletionException && err.getCause() != null
+                    ? err.getCause() : err;
+            if (cause instanceof RequestException re && re.code() == io.grpc.Status.Code.UNIMPLEMENTED) {
+                takeBackUnsupported = true; // the player stays usable here until they leave
+                log.warning("This LeonsDB server cannot give players back after a server switch that failed; "
+                        + "such players are disconnected instead. Update LeonsDB to 0.10 or newer.");
+                return;
+            }
+            // Still owned elsewhere after the wait (the switch is going on),
+            // or LeonsDB is unreachable: try again.
+            boolean waited = cause instanceof LeonsDBException e && "OWNED_ELSEWHERE".equals(e.reason());
+            try {
+                background.schedule(() -> takeBack(old), waited ? 0 : TAKE_BACK_RETRY.toMillis(), TimeUnit.MILLISECONDS);
+            } catch (java.util.concurrent.RejectedExecutionException stopped) {
+                // shutting down
+            }
+        });
+    }
+
+    /**
+     * On the player's thread: a player whose switch failed is ours again.
+     * Plugins keep the same data objects: what another server changed
+     * meanwhile is merged into them, and what changed here since the
+     * handover is kept and saved as usual.
+     */
+    private void resume(PlayerSession old, com.leonsdb.proto.v1.AcquireLeaseResponse taken) {
+        UUID uuid = old.uuid;
+        synchronized (loading) {
+            if (loading.contains(uuid) || sessions.containsKey(uuid)) {
+                // The player came back to this server by a new login, which uses
+                // this ownership: the old data must never come back.
+                return;
+            }
+            if (!handedOver.remove(uuid, old)) {
+                // The player left, and what changed here was sent after them:
+                // the old data must never be saved again. Let go; a login of
+                // the player here waits until that is done.
+                CompletableFuture<Void> r = leases.release(uuid);
+                releasing.put(uuid, r);
+                r.whenComplete((ok, err) -> releasing.remove(uuid, r));
+                return;
+            }
+        }
+        PlayerSession session = new PlayerSession(uuid, taken.getEpoch());
+        Map<String, com.leonsdb.proto.v1.Record> loaded = new HashMap<>();
+        taken.getRecordsList().forEach(r -> loaded.put(r.getRef().getNamespace() + "." + r.getRef().getCollection(), r));
+        for (ClassSchema<?> schema : schemas.values()) {
+            if (schema.isPlayerData()) {
+                putObject(session, takenBack(session, schema, old, loaded.get(schema.namespace() + "." + schema.collection())));
+            }
+        }
+        boolean stillHere = platform.isOnline(uuid);
+        if (sessions.putIfAbsent(uuid, session) != null) {
+            return; // loaded again by a new login meanwhile, under the same ownership
+        }
+        CompletableFuture<Void> saved;
+        if (stillHere) {
+            log.info("Took " + uuid + " back: their switch to another server did not complete.");
+            // Changed since the handover, and waited for with update() or
+            // save(): saved now, under the new ownership.
+            List<CompletableFuture<Void>> saves = new ArrayList<>();
+            for (CachedObject<?> obj : session.all()) {
+                CompletableFuture<Void> w = new CompletableFuture<>();
+                try {
+                    obj.submit(obj.snapshot(), w);
+                } catch (IllegalArgumentException e) {
+                    w.completeExceptionally(e);
+                }
+                saves.add(w);
+            }
+            saved = CompletableFuture.allOf(saves.toArray(new CompletableFuture<?>[0]));
+        } else {
+            saved = unloadPlayer(uuid); // left meanwhile: save what changed here, and let go
+        }
+        saved.whenComplete((ok, err) -> {
+            if (err == null) {
+                old.lateChanges.complete(null);
+            } else {
+                old.lateChanges.completeExceptionally(err);
+            }
+        });
+    }
+
+    // --- Changes after a handover -------------------------------------------
+
+    /**
+     * What a plugin changed in one data object of a player after the player
+     * was handed over to another server.
+     *
+     * @param obj       the object, as plugins here still have it
+     * @param handedOver its values when it was handed over
+     * @param now       its values when the player left
+     */
+    private record LateChange<T>(CachedObject<T> obj, Map<String, Value> handedOver, Map<String, Value> now) {
+
+        /** As a change to the player's data wherever it is now: numbers by their difference, others set. */
+        void addTo(Transaction t, UUID player) {
+            ClassSchema<T> schema = obj.schema();
+            t.update(player, schema.type(), copy -> {
+                Map<String, Value> current = schema.read(copy);
+                for (ClassSchema.FieldBinding f : schema.fields()) {
+                    String name = f.name();
+                    if (obj.unreadable().contains(name) || Objects.equals(handedOver.get(name), now.get(name))) {
+                        continue;
+                    }
+                    schema.writeField(copy, name, TransactionImpl.merge(handedOver.get(name), now.get(name), current.get(name)));
+                }
+            });
+        }
+
+        List<com.leonsdb.proto.v1.Operation> ops() {
+            return com.leonsdb.connector.core.schema.Diff.compute(obj.schema(), handedOver, now, obj.unreadable());
+        }
+    }
+
+    /**
+     * On the player's thread: what changed in a handed-over player's data
+     * since the handover, for example in a quit event.
+     */
+    private List<LateChange<?>> lateChangesOf(PlayerSession old) {
+        List<LateChange<?>> changes = new ArrayList<>();
+        var finals = old.finals;
+        if (finals == null) {
+            return changes;
+        }
+        for (CachedObject<?> obj : old.all()) {
+            Map<String, Value> handedOverValues = finals.get(obj);
+            if (handedOverValues == null) {
+                continue;
+            }
+            try {
+                LateChange<?> c = new LateChange<>(obj, handedOverValues, obj.snapshot());
+                if (!c.ops().isEmpty()) {
+                    changes.add(c);
+                }
+            } catch (IllegalArgumentException e) {
+                log.log(Level.SEVERE, "Cannot save " + obj.schema().type().getSimpleName() + " of " + old.uuid
+                        + ": " + e.getMessage());
+            }
+        }
+        return changes;
+    }
+
+    /**
+     * A handed-over player left this server. What changed in their data
+     * since the handover is sent after them: the server they are on now
+     * applies it to their live data (or LeonsDB to the stored data, if they
+     * are offline), exactly once, as for a transaction from another server.
+     * Call only once per session, after taking it out of handedOver.
+     */
+    private CompletableFuture<Void> sendLateChanges(PlayerSession old) {
+        onPlayerThreadNow(old.uuid, () -> deliverLate(old, lateChangesOf(old), 0));
+        return old.lateChanges;
+    }
+
+    private void deliverLate(PlayerSession old, List<LateChange<?>> changes, int attempt) {
+        if (changes.isEmpty()) {
+            old.lateChanges.complete(null);
+            return;
+        }
+        Transaction t = transaction();
+        changes.forEach(c -> c.addTo(t, old.uuid));
+        t.commit().whenComplete((ok, err) -> {
+            if (err == null) {
+                if (attempt > 0) {
+                    log.info("Saved the changes made to " + old.uuid + " just before they switched servers.");
+                }
+                old.lateChanges.complete(null);
+                return;
+            }
+            Throwable cause = err instanceof java.util.concurrent.CompletionException && err.getCause() != null
+                    ? err.getCause() : err;
+            String reason = cause instanceof LeonsDBException e ? e.reason() : null;
+            if ("NOT_CONFIRMED".equals(reason)) {
+                // Still being sent under the same transaction id; sending it
+                // again as a new one could apply it twice.
+                old.lateChanges.completeExceptionally(cause);
+                return;
+            }
+            boolean refused = cause instanceof RequestException re && !re.isTemporary()
+                    && !"OWNER_UNAVAILABLE".equals(reason) && !"BUSY".equals(reason);
+            if (refused) {
+                log.severe("LeonsDB refused the changes made to " + old.uuid + " just before they switched servers: "
+                        + cause.getMessage() + ". Changes: " + changes.stream().map(LateChange::ops).toList());
+                old.lateChanges.completeExceptionally(cause);
+                return;
+            }
+            if (shutDown) {
+                old.lateChanges.completeExceptionally(cause); // shutdown writes them to recovery files
+                return;
+            }
+            if (attempt % 20 == 0) {
+                log.warning("Could not save the changes made to " + old.uuid + " just before they switched servers yet; "
+                        + "they are kept in memory and retried: " + cause.getMessage());
+            }
+            long delay = Math.min(30_000, 500L << Math.min(attempt, 6));
+            try {
+                background.schedule(() -> deliverLate(old, changes, attempt + 1), delay, TimeUnit.MILLISECONDS);
+            } catch (java.util.concurrent.RejectedExecutionException stopped) {
+                old.lateChanges.completeExceptionally(cause);
+            }
+        });
+    }
+
+    private <T> CachedObject<T> takenBack(PlayerSession session, ClassSchema<T> schema, PlayerSession old,
+                                          com.leonsdb.proto.v1.Record rec) {
+        RecordRef ref = playerRef(schema, session.uuid);
+        GetResponse resp = rec == null ? GetResponse.getDefaultInstance()
+                : GetResponse.newBuilder().setFound(true).setRecord(rec).build();
+        CachedObject<T> fresh = fromResponse(session, schema, ref, resp);
+        @SuppressWarnings("unchecked")
+        CachedObject<T> before = (CachedObject<T>) old.objects.get(schema.type());
+        var finals = old.finals;
+        Map<String, Value> handedOverValues = before == null || finals == null ? null : finals.get(before);
+        if (handedOverValues == null) {
+            return fresh; // registered since the handover, or it could not be saved then
+        }
+        try {
+            before.applyChange(handedOverValues, fresh.snapshot());
+        } catch (IllegalArgumentException e) {
+            log.log(Level.SEVERE, "Cannot take back " + schema.type().getSimpleName() + " of " + session.uuid
+                    + " with the changes made here since the switch: " + e.getMessage());
+            return fresh;
+        }
+        return new CachedObject<>(schema, ref, before.instance(), fresh.unreadable(), fresh.base(), fresh.version(),
+                client, log, session::epoch, () -> onLost(session.uuid));
     }
 
     /**
@@ -538,6 +892,7 @@ public final class LeonsDBService implements LeonsDBProvider {
      * without saving; they load the restored data when they join again.
      */
     private void onDatabaseReplaced() {
+        handedOver.clear();
         int n = 0;
         for (UUID uuid : List.copyOf(sessions.keySet())) {
             if (drop(uuid, "The network's data was restored from a backup. Please reconnect.")) {
@@ -550,6 +905,7 @@ public final class LeonsDBService implements LeonsDBProvider {
 
     private boolean drop(UUID uuid, String message) {
         leases.forget(uuid);
+        handedOver.remove(uuid);
         PlayerSession session = sessions.remove(uuid);
         if (session == null) {
             return false;
@@ -575,9 +931,15 @@ public final class LeonsDBService implements LeonsDBProvider {
             throw new LeonsDBException(type.getName() + " is @GlobalData; use LeonsDB.global(...)");
         }
         PlayerSession session = sessions.get(uuid);
-        // While a player is leaving or being handed over, plugins may still
-        // read the cached object, but changes are no longer saved.
-        if (session == null || session.lost || (forWriting && session.isUnloading())) {
+        if (session == null) {
+            session = handedOver.get(uuid);
+        }
+        // While a player is leaving, plugins may still read the cached object,
+        // but changes are no longer saved. A player handed over to another
+        // server stays fully usable until they leave: what changes then
+        // follows them (see unload).
+        if (session == null || session.lost
+                || (forWriting && session.isUnloading() && !session.handover && !session.handingOver)) {
             throw new DataNotLoadedException("Data of player " + uuid + " is not loaded (offline, joining or moved to another server)");
         }
         @SuppressWarnings("unchecked")
@@ -655,9 +1017,44 @@ public final class LeonsDBService implements LeonsDBProvider {
         return shutDown;
     }
 
+    /** Whether this server owns the player and has their data. */
     boolean isLoaded(UUID uuid) {
         PlayerSession s = sessions.get(uuid);
         return s != null && !s.isUnloading() && !s.lost;
+    }
+
+    /**
+     * Whether this server owns the player, for diagnostics and tests: a player
+     * handed over for a server switch has data here until they leave, but is
+     * owned by the other server.
+     *
+     * @param uuid the player
+     * @return true if owned here with the data loaded
+     */
+    public boolean ownsPlayer(UUID uuid) {
+        return isLoaded(uuid);
+    }
+
+    /** Whether plugins can use the player's data here (see {@link PlayerHandle#isLoaded}). */
+    boolean hasData(UUID uuid) {
+        PlayerSession s = sessions.get(uuid);
+        if (s != null && !s.lost && (!s.isUnloading() || s.handover)) {
+            return true;
+        }
+        return handedOver.containsKey(uuid);
+    }
+
+    /**
+     * For a player handed over to another server who is still here: completes
+     * once what changed since the handover is stored. Null otherwise.
+     */
+    CompletableFuture<Void> lateChanges(UUID uuid) {
+        PlayerSession s = sessions.get(uuid);
+        if (s == null) {
+            s = handedOver.get(uuid);
+        }
+        // In a handover listener the data is still saved here as usual.
+        return s != null && s.handover && !s.lost && !s.handingOver ? s.lateChanges : null;
     }
 
     List<CachedObject<?>> objectsOf(UUID uuid) {
@@ -757,11 +1154,11 @@ public final class LeonsDBService implements LeonsDBProvider {
                 .build();
     }
 
-    private void writeRecoveryFiles(Map<CachedObject<?>, Map<String, Value>> finals) {
+    private void writeRecoveryFiles(Map<CachedObject<?>, List<com.leonsdb.proto.v1.Operation>> unsaved) {
         int written = 0;
-        for (var e : finals.entrySet()) {
+        for (var e : unsaved.entrySet()) {
             CachedObject<?> obj = e.getKey();
-            var ops = obj.pendingOps(e.getValue());
+            var ops = e.getValue();
             if (ops.isEmpty()) {
                 continue;
             }

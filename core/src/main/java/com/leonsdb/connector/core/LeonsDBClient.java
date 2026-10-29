@@ -354,6 +354,29 @@ public final class LeonsDBClient implements AutoCloseable {
     }
 
     /**
+     * Takes back a player this server handed over for a server switch that
+     * did not complete: like {@link #acquireLease}, but once nobody owns the
+     * player, never asking the owner to hand over. Fails with
+     * OWNED_ELSEWHERE while the player is owned or wanted elsewhere, and with
+     * UNIMPLEMENTED on servers before 0.10.
+     *
+     * @param player     the player's UUID bytes
+     * @param holderId   this connector instance's identity
+     * @param holderName this server's name
+     * @param waitMillis how long to wait for the player to be free
+     * @param load       collections as "namespace.collection"
+     * @return the epoch and the records that exist
+     */
+    public CompletableFuture<AcquireLeaseResponse> takeBackLease(ByteString player, String holderId, String holderName,
+                                                               long waitMillis, java.util.List<String> load) {
+        var req = AcquireLeaseRequest.newBuilder()
+                .setPlayer(player).setHolderId(holderId).setHolderName(holderName)
+                .setWaitMs((int) Math.min(waitMillis, 30_000)).addAllLoad(load).build();
+        var stub = leases.withDeadlineAfter(timeoutMillis() + waitMillis, TimeUnit.MILLISECONDS);
+        return call("TakeBackLease", stub.takeBack(req));
+    }
+
+    /**
      * Renews all leases of this connector instance.
      *
      * @param holderId this connector instance's identity

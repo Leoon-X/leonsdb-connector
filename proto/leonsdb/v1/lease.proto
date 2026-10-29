@@ -56,6 +56,14 @@ service LeaseService {
   // change: the owner keeps the player, and keeps saving, until the new
   // server asks for them, so a switch that fails loses nothing.
   rpc Expect(ExpectRequest) returns (ExpectResponse);
+
+  // TakeBack is Acquire for a player still connected to a server that
+  // handed them over for a switch that did not complete. It waits up to
+  // wait_ms until nobody owns the player, but never asks the owner to hand
+  // over, and lets every waiting Acquire go first, so it never takes a
+  // player from a switch that is still in progress. Fails like Acquire if
+  // the player is still owned (or wanted) elsewhere when the wait ends.
+  rpc TakeBack(AcquireLeaseRequest) returns (AcquireLeaseResponse);
 }
 
 message AcquireLeaseRequest {

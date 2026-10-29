@@ -1160,7 +1160,7 @@ const file_leonsdb_v1_lease_proto_rawDesc = "" +
 	"\x06target\x18\x02 \x01(\tR\x06target\"/\n" +
 	"\x0eExpectResponse\x12\x1d\n" +
 	"\n" +
-	"owner_told\x18\x01 \x01(\bR\townerTold2\xad\x04\n" +
+	"owner_told\x18\x01 \x01(\bR\townerTold2\xfc\x04\n" +
 	"\fLeaseService\x12L\n" +
 	"\aAcquire\x12\x1f.leonsdb.v1.AcquireLeaseRequest\x1a .leonsdb.v1.AcquireLeaseResponse\x12H\n" +
 	"\x05Renew\x12\x1e.leonsdb.v1.RenewLeasesRequest\x1a\x1f.leonsdb.v1.RenewLeasesResponse\x12L\n" +
@@ -1168,7 +1168,8 @@ const file_leonsdb_v1_lease_proto_rawDesc = "" +
 	"\x05Watch\x12\x1e.leonsdb.v1.WatchLeasesRequest\x1a\x16.leonsdb.v1.LeaseEvent0\x01\x12E\n" +
 	"\bPrepared\x12\x1b.leonsdb.v1.PreparedRequest\x1a\x1c.leonsdb.v1.PreparedResponse\x12l\n" +
 	"\x15GetTransactionOutcome\x12(.leonsdb.v1.GetTransactionOutcomeRequest\x1a).leonsdb.v1.GetTransactionOutcomeResponse\x12?\n" +
-	"\x06Expect\x12\x19.leonsdb.v1.ExpectRequest\x1a\x1a.leonsdb.v1.ExpectResponseBl\n" +
+	"\x06Expect\x12\x19.leonsdb.v1.ExpectRequest\x1a\x1a.leonsdb.v1.ExpectResponse\x12M\n" +
+	"\bTakeBack\x12\x1f.leonsdb.v1.AcquireLeaseRequest\x1a .leonsdb.v1.AcquireLeaseResponseBl\n" +
 	"\x14com.leonsdb.proto.v1B\n" +
 	"LeaseProtoP\x01ZFgithub.com/Leoon-X/leonsdb-connector/proto/gen/go/leonsdb/v1;leonsdbv1b\x06proto3"
 
@@ -1223,15 +1224,17 @@ var file_leonsdb_v1_lease_proto_depIdxs = []int32{
 	10, // 11: leonsdb.v1.LeaseService.Prepared:input_type -> leonsdb.v1.PreparedRequest
 	12, // 12: leonsdb.v1.LeaseService.GetTransactionOutcome:input_type -> leonsdb.v1.GetTransactionOutcomeRequest
 	14, // 13: leonsdb.v1.LeaseService.Expect:input_type -> leonsdb.v1.ExpectRequest
-	3,  // 14: leonsdb.v1.LeaseService.Acquire:output_type -> leonsdb.v1.AcquireLeaseResponse
-	5,  // 15: leonsdb.v1.LeaseService.Renew:output_type -> leonsdb.v1.RenewLeasesResponse
-	7,  // 16: leonsdb.v1.LeaseService.Release:output_type -> leonsdb.v1.ReleaseLeaseResponse
-	9,  // 17: leonsdb.v1.LeaseService.Watch:output_type -> leonsdb.v1.LeaseEvent
-	11, // 18: leonsdb.v1.LeaseService.Prepared:output_type -> leonsdb.v1.PreparedResponse
-	13, // 19: leonsdb.v1.LeaseService.GetTransactionOutcome:output_type -> leonsdb.v1.GetTransactionOutcomeResponse
-	15, // 20: leonsdb.v1.LeaseService.Expect:output_type -> leonsdb.v1.ExpectResponse
-	14, // [14:21] is the sub-list for method output_type
-	7,  // [7:14] is the sub-list for method input_type
+	2,  // 14: leonsdb.v1.LeaseService.TakeBack:input_type -> leonsdb.v1.AcquireLeaseRequest
+	3,  // 15: leonsdb.v1.LeaseService.Acquire:output_type -> leonsdb.v1.AcquireLeaseResponse
+	5,  // 16: leonsdb.v1.LeaseService.Renew:output_type -> leonsdb.v1.RenewLeasesResponse
+	7,  // 17: leonsdb.v1.LeaseService.Release:output_type -> leonsdb.v1.ReleaseLeaseResponse
+	9,  // 18: leonsdb.v1.LeaseService.Watch:output_type -> leonsdb.v1.LeaseEvent
+	11, // 19: leonsdb.v1.LeaseService.Prepared:output_type -> leonsdb.v1.PreparedResponse
+	13, // 20: leonsdb.v1.LeaseService.GetTransactionOutcome:output_type -> leonsdb.v1.GetTransactionOutcomeResponse
+	15, // 21: leonsdb.v1.LeaseService.Expect:output_type -> leonsdb.v1.ExpectResponse
+	3,  // 22: leonsdb.v1.LeaseService.TakeBack:output_type -> leonsdb.v1.AcquireLeaseResponse
+	15, // [15:23] is the sub-list for method output_type
+	7,  // [7:15] is the sub-list for method input_type
 	7,  // [7:7] is the sub-list for extension type_name
 	7,  // [7:7] is the sub-list for extension extendee
 	0,  // [0:7] is the sub-list for field type_name

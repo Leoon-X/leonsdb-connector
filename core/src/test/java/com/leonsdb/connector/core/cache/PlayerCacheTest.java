@@ -6,6 +6,7 @@ package com.leonsdb.connector.core.cache;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -25,6 +26,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -429,13 +431,301 @@ class PlayerCacheTest {
         platform.online.add(steve);
         stats().kills = 9; // not saved yet: the handover must save it
 
+        server.nextOwnerOnRelease = "other-server";
         server.requestHandover(playerBytes());
-        await(() -> server.ownerOf(playerBytes()) == null, "released after handover");
+        await(() -> "other-server".equals(server.ownerOf(playerBytes())), "released after handover");
         assertEquals(9, storedInt("kills"), "data saved before releasing");
-        assertFalse(service.player(steve).isLoaded());
+        assertFalse(service.ownsPlayer(steve));
 
-        // Still on this server after the grace period: they logged in elsewhere.
+        // Still on this server after the grace period, and the other server
+        // keeps the player: they logged in elsewhere.
         await(() -> platform.disconnected.containsKey(steve), "disconnected after the grace period");
+        assertFalse(service.ownsPlayer(steve), "never taken from the other server");
+    }
+
+    @Test
+    void aPlayerWhoseSwitchFailedIsTakenBackWithEveryChange() throws Exception {
+        server.put(ref(steve), Map.of("kills", Value.newBuilder().setIntValue(5).build(),
+                "level", Value.newBuilder().setIntValue(1).build()));
+        service.loadPlayer(steve);
+        platform.online.add(steve);
+        Stats mine = stats(); // a plugin keeps the object
+        mine.kills = 9;
+
+        server.nextOwnerOnRelease = "other-server"; // the server the player switches to
+        server.requestHandover(playerBytes());
+        await(() -> "other-server".equals(server.ownerOf(playerBytes())), "handed over");
+        assertEquals(9, storedInt("kills"));
+
+        // The other server saves a change; meanwhile the player gets a kill here.
+        server.put(ref(steve), Map.of("level", Value.newBuilder().setIntValue(4).build()));
+        mine.kills++;
+        Thread.sleep(150);
+        assertFalse(service.ownsPlayer(steve), "never taken while the other server has the player");
+
+        // The login there fails: it lets go, and the player is still here.
+        server.letGo(playerBytes());
+        await(() -> service.ownsPlayer(steve), "taken back");
+        assertSame(mine, stats(), "plugins keep the same object");
+        assertEquals(10, mine.kills, "the kill made here meanwhile is kept");
+        assertEquals(4, mine.level, "and the other server's change is merged in");
+        service.player(steve).save().get(5, TimeUnit.SECONDS);
+        assertEquals(10, storedInt("kills"));
+        assertEquals(4, storedInt("level"));
+
+        Thread.sleep(400); // past the grace period
+        assertFalse(platform.disconnected.containsKey(steve), "never disconnected");
+        service.unloadPlayer(steve).get(5, TimeUnit.SECONDS);
+        assertNull(server.ownerOf(playerBytes()), "released normally when they leave");
+    }
+
+    @Test
+    void takingBackStopsWhenTheSwitchWentThrough() throws Exception {
+        service.loadPlayer(steve);
+        platform.online.add(steve);
+        server.nextOwnerOnRelease = "other-server";
+        server.requestHandover(playerBytes());
+        await(() -> server.takeBacks.get() > 0, "waiting to take the player back");
+
+        platform.online.remove(steve); // the proxy moved them on
+        service.unloadPlayer(steve);
+        Thread.sleep(300);
+        int tries = server.takeBacks.get();
+        server.letGo(playerBytes()); // later, they leave the other server
+        Thread.sleep(300);
+        assertEquals(tries, server.takeBacks.get(), "stopped trying");
+        assertNull(server.ownerOf(playerBytes()), "and never took the player");
+    }
+
+    @Test
+    void aPlayerTakenBackJustAfterLeavingIsSavedAndReleased() throws Exception {
+        service.loadPlayer(steve);
+        platform.online.add(steve);
+        Stats mine = stats();
+        server.holdTakeBacks = new CountDownLatch(1);
+        server.nextOwnerOnRelease = "other-server";
+        server.requestHandover(playerBytes());
+        await(() -> server.takeBacks.get() > 0, "taking back");
+
+        // The switch fails, but the player leaves before the take-back is answered.
+        mine.kills = 3;
+        server.letGo(playerBytes());
+        platform.online.remove(steve);
+        service.unloadPlayer(steve);
+        server.holdTakeBacks.countDown();
+
+        await(() -> server.ownerOf(playerBytes()) == null && storedInt("kills") == 3, "saved and released");
+        Thread.sleep(200);
+        assertNull(server.ownerOf(playerBytes()), "not kept");
+        assertFalse(service.player(steve).isLoaded());
+    }
+
+    @Test
+    void withALeonsDBThatCannotTakeBackThePlayerIsDisconnectedAsBefore() throws Exception {
+        server.noTakeBack = true;
+        service.loadPlayer(steve);
+        platform.online.add(steve);
+        server.requestHandover(playerBytes());
+        await(() -> platform.disconnected.containsKey(steve), "disconnected after the grace period");
+        assertFalse(service.ownsPlayer(steve));
+    }
+
+    // --- Changes after a handover (quit events on a switch) -------------------
+
+    /** The player switches to "other-server", which keeps them; they are still here. */
+    private Stats handOver() throws Exception {
+        server.put(ref(steve), Map.of("kills", Value.newBuilder().setIntValue(10).build(),
+                "title", Value.newBuilder().setStringValue("Newbie").build()));
+        service.loadPlayer(steve);
+        platform.online.add(steve);
+        server.ownersApplyOwnerOps = true;
+        server.nextOwnerOnRelease = "other-server";
+        server.requestHandover(playerBytes());
+        await(() -> "other-server".equals(server.ownerOf(playerBytes())), "handed over");
+        return stats();
+    }
+
+    /** The proxy moved the player on; the quit event runs here. */
+    private CompletableFuture<Void> quit(Runnable quitHandler) {
+        platform.online.remove(steve);
+        quitHandler.run();
+        return service.unloadPlayer(steve);
+    }
+
+    @Test
+    void changesInTheQuitEventFollowThePlayer() throws Exception {
+        handOver();
+        assertTrue(service.player(steve).isLoaded(), "still usable until the player leaves");
+        server.put(ref(steve), Map.of("kills", Value.newBuilder().setIntValue(13).build())); // the other server: +3
+        int transacts = server.transacts.size();
+
+        quit(() -> {
+            Stats s = service.player(steve).get(Stats.class); // a plugin's quit handler
+            s.kills += 2;
+            s.title = "Veteran";
+        }).get(5, TimeUnit.SECONDS);
+
+        assertEquals(15, storedInt("kills"), "both servers' kills count");
+        assertEquals("Veteran", server.get(ref(steve)).fields.get("title").getStringValue());
+        var late = server.transacts.get(transacts).getWrites(0);
+        var kills = late.getOwnerOperationsList().stream().filter(o -> o.getField().equals("kills")).findFirst().orElseThrow();
+        assertEquals(2, kills.getIncrement().getIntValue(), "sent to the owner as a difference");
+        assertFalse(service.player(steve).isLoaded(), "gone once they left");
+        assertThrows(DataNotLoadedException.class, this::stats);
+    }
+
+    @Test
+    void updateAndSaveAfterTheHandoverCompleteOnceTheChangeIsStored() throws Exception {
+        handOver();
+        int applies = server.applies.size();
+        var updated = service.player(steve).update(Stats.class, s -> s.coins += 5);
+        var saved = service.player(steve).save();
+        Thread.sleep(100);
+        assertFalse(updated.isDone(), "the player is still here: nothing to send yet");
+        assertEquals(applies, server.applies.size(), "nothing written with the old ownership");
+        quit(() -> { }).get(5, TimeUnit.SECONDS);
+        updated.get(5, TimeUnit.SECONDS);
+        saved.get(5, TimeUnit.SECONDS);
+        assertEquals(5, server.get(ref(steve)).fields.get("coins").getLongValue());
+        assertFalse(platform.disconnected.containsKey(steve), "no write was refused, nobody was disconnected");
+    }
+
+    @Test
+    void aTakeBackAnsweredAfterTheLateChangesWereSentNeverSavesThemAgain() throws Exception {
+        server.holdTakeBacks = new CountDownLatch(1);
+        handOver();
+        await(() -> server.takeBacks.get() > 0, "a take-back is waiting");
+        quit(() -> stats().kills += 2).get(5, TimeUnit.SECONDS);
+        assertEquals(12, storedInt("kills"));
+
+        // Later the other server lets go, and the waiting take-back gets the player.
+        server.letGo(playerBytes());
+        server.holdTakeBacks.countDown();
+        Thread.sleep(300);
+        assertEquals(12, storedInt("kills"), "the kills were not added a second time");
+        assertNull(server.ownerOf(playerBytes()), "let go again");
+        assertFalse(service.player(steve).isLoaded());
+    }
+
+    @Test
+    void aTakeBackAnsweredWhenThePlayerCameBackHereNeverRestoresOldData() throws Exception {
+        server.holdTakeBacks = new CountDownLatch(1);
+        handOver();
+        await(() -> server.takeBacks.get() > 0, "a take-back is waiting");
+        quit(() -> { }).get(5, TimeUnit.SECONDS); // the switch went through
+
+        // Later the player plays elsewhere and then comes back here.
+        server.put(ref(steve), Map.of("kills", Value.newBuilder().setIntValue(20).build()));
+        server.letGo(playerBytes());
+        service.loadPlayer(steve);
+        platform.online.add(steve);
+        Stats fresh = stats();
+        assertEquals(20, fresh.kills);
+
+        server.holdTakeBacks.countDown(); // the old take-back is answered only now
+        Thread.sleep(300);
+        assertSame(fresh, stats(), "the data from before the switch did not come back");
+        fresh.kills++;
+        service.player(steve).save().get(5, TimeUnit.SECONDS);
+        assertEquals(21, storedInt("kills"));
+        assertTrue(service.ownsPlayer(steve));
+    }
+
+    @Test
+    void anEarlierSwitchsWaitNeverDisconnectsAPlayerInALaterSwitch() throws Exception {
+        // The grace period here is 200 ms (TestPlatform).
+        service.loadPlayer(steve);
+        platform.online.add(steve);
+        server.nextOwnerOnRelease = "other-server";
+        server.requestHandover(playerBytes()); // first switch, which fails at once
+        await(() -> "other-server".equals(server.ownerOf(playerBytes())), "handed over");
+        server.letGo(playerBytes());
+        await(() -> service.ownsPlayer(steve), "taken back");
+
+        Thread.sleep(80);
+        server.nextOwnerOnRelease = "other-server";
+        server.requestHandover(playerBytes()); // second switch, slower to fail
+        await(() -> "other-server".equals(server.ownerOf(playerBytes())), "handed over again");
+        Thread.sleep(160); // the first switch's wait has ended meanwhile
+        assertFalse(platform.disconnected.containsKey(steve), "not disconnected by the first switch's wait");
+        server.letGo(playerBytes());
+        await(() -> service.ownsPlayer(steve), "taken back again");
+        Thread.sleep(300);
+        assertFalse(platform.disconnected.containsKey(steve), "never disconnected");
+    }
+
+    @Test
+    void nothingIsSentWhenNothingChangedAfterTheHandover() throws Exception {
+        handOver();
+        int transacts = server.transacts.size();
+        quit(() -> service.player(steve).get(Stats.class)).get(5, TimeUnit.SECONDS);
+        assertEquals(transacts, server.transacts.size());
+    }
+
+    @Test
+    void lateChangesAreRetriedUntilStored() throws Exception {
+        handOver();
+        server.failNext.set(3);
+        quit(() -> stats().kills++).get(15, TimeUnit.SECONDS);
+        assertEquals(11, storedInt("kills"));
+    }
+
+    @Test
+    void handoverListenersChangeTheDataTheNewServerLoads() throws Exception {
+        var calls = new java.util.concurrent.CopyOnWriteArrayList<String>();
+        var failing = service.onHandover(p -> {
+            throw new IllegalStateException("a broken plugin");
+        });
+        var listener = service.onHandover(p -> {
+            calls.add(Thread.currentThread().getName());
+            service.player(p).get(Stats.class).title = "Traveller";
+        });
+        service.loadPlayer(steve);
+        platform.online.add(steve);
+        server.nextOwnerOnRelease = "other-server";
+        server.requestHandover(playerBytes());
+        await(() -> "other-server".equals(server.ownerOf(playerBytes())), "handed over");
+        assertEquals("Traveller", server.get(ref(steve)).fields.get("title").getStringValue(),
+                "saved with the handover, before the other server got the player");
+        assertEquals(1, calls.size());
+
+        listener.close();
+        failing.close();
+        listener.close(); // twice is fine
+        server.letGo(playerBytes());
+        await(() -> service.ownsPlayer(steve), "taken back");
+        server.nextOwnerOnRelease = "other-server";
+        server.requestHandover(playerBytes());
+        await(() -> "other-server".equals(server.ownerOf(playerBytes())), "handed over again");
+        assertEquals(1, calls.size(), "closed listeners are not called");
+    }
+
+    @Test
+    void handoverListenersAreNotCalledWhenAPlayerSimplyLeaves() throws Exception {
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        service.onHandover(p -> calls.incrementAndGet());
+        service.loadPlayer(steve);
+        service.unloadPlayer(steve).get(5, TimeUnit.SECONDS);
+        assertEquals(0, calls.get());
+    }
+
+    @Test
+    void lateChangesAreWrittenToRecoveryFilesIfLeonsDBIsGoneAtShutdown() throws Exception {
+        var svc = TestPlatform.service(client, Logger.getLogger("late-recovery"), platform, tmp.resolve("late"));
+        svc.register(Stats.class);
+        server.ownersApplyOwnerOps = true;
+        svc.loadPlayer(steve);
+        platform.online.add(steve);
+        server.nextOwnerOnRelease = "other-server";
+        server.requestHandover(playerBytes());
+        await(() -> "other-server".equals(server.ownerOf(playerBytes())), "handed over");
+        svc.player(steve).get(Stats.class).title = "Unsaved";
+        server.failNext.set(1000);
+        svc.shutdown(Duration.ofMillis(500));
+        try (var files = Files.list(tmp.resolve("late"))) {
+            String text = Files.readString(files.findFirst().orElseThrow());
+            assertTrue(text.contains("Unsaved"), text);
+        }
     }
 
     @Test

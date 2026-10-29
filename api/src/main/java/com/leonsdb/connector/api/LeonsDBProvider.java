@@ -67,4 +67,12 @@ public interface LeonsDBProvider {
      * @return the history
      */
     History history();
+
+    /**
+     * See {@link LeonsDB#onHandover}.
+     *
+     * @param listener the listener
+     * @return the registration
+     */
+    Registration onHandover(HandoverListener listener);
 }

@@ -3,6 +3,7 @@
 
 package com.leonsdb.connector.paper;
 
+import com.destroystokyo.paper.event.player.PlayerConnectionCloseEvent;
 import com.leonsdb.connector.api.LeonsDB;
 import com.leonsdb.connector.api.LeonsDBException;
 import com.leonsdb.connector.core.ConnectionSettings;
@@ -10,7 +11,9 @@ import com.leonsdb.connector.core.LeonsDBClient;
 import com.leonsdb.connector.core.cache.LeonsDBService;
 import com.leonsdb.connector.core.schema.Codecs;
 import java.time.Duration;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import net.kyori.adventure.text.Component;
@@ -35,6 +38,8 @@ public final class LeonsDBPlugin extends JavaPlugin implements Listener {
 
     private LeonsDBClient client;
     private LeonsDBService service;
+    // Per player, their connections between the login checks and the end.
+    private final Map<UUID, Integer> connections = new ConcurrentHashMap<>();
 
     @Override
     public void onEnable() {
@@ -84,7 +89,7 @@ public final class LeonsDBPlugin extends JavaPlugin implements Listener {
                 serverName,
                 Duration.ofMillis(config.getLong("load-timeout-ms", 5000)),
                 Duration.ofMillis(config.getLong("lease-wait-ms", 10000)),
-                Duration.ofMillis(config.getLong("handover-grace-ms", 5000)),
+                Duration.ofMillis(config.getLong("handover-grace-ms", 35000)),
                 getDataFolder().toPath().resolve("recovery")));
         service.start();
         LeonsDB.install(service);
@@ -127,6 +132,36 @@ public final class LeonsDBPlugin extends JavaPlugin implements Listener {
             getLogger().warning("Refused login of " + event.getName() + ": " + rootMessage(e));
             event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, Component.text(
                     "Your data could not be loaded right now. Please try again in a moment."));
+        }
+    }
+
+    /**
+     * Counts the player's connections that got past the login checks. If
+     * another plugin refused the login after the data was loaded, the data
+     * is released now: no later event would.
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPreLoginResult(AsyncPlayerPreLoginEvent event) {
+        UUID uuid = event.getUniqueId();
+        if (event.getLoginResult() == AsyncPlayerPreLoginEvent.Result.ALLOWED) {
+            connections.merge(uuid, 1, Integer::sum);
+        } else if (Bukkit.getPlayer(uuid) == null && !connections.containsKey(uuid)) {
+            service.unloadPlayer(uuid);
+        }
+    }
+
+    /**
+     * A connection ended. If it was the player's last one and they never
+     * reached the world (a server switch that failed, or a client that gave
+     * up while logging in), their data is saved and released now, so the
+     * server they are still on can take them back right away.
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onConnectionClose(PlayerConnectionCloseEvent event) {
+        UUID uuid = event.getPlayerUniqueId();
+        Integer left = connections.computeIfPresent(uuid, (u, n) -> n > 1 ? n - 1 : null);
+        if (left == null && Bukkit.getPlayer(uuid) == null) {
+            service.unloadPlayer(uuid); // nothing to do after a normal quit, which saved already
         }
     }
 

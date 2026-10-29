@@ -35,6 +35,9 @@ public class Stats {
 
     public Location lastLocation;
 
+    /** How often the player left a server, server switches included. */
+    public int quits;
+
     public ItemStack[] stash;
 
     public List<String> titles = new ArrayList<>();

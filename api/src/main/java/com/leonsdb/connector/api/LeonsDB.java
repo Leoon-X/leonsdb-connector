@@ -124,6 +124,17 @@ public final class LeonsDB {
     }
 
     /**
+     * Calls a listener right before a player's data is handed to another
+     * server, on the player's thread. See {@link HandoverListener}.
+     *
+     * @param listener the listener
+     * @return closes the registration; close it when your plugin is disabled
+     */
+    public static Registration onHandover(HandoverListener listener) {
+        return provider().onHandover(Objects.requireNonNull(listener, "listener"));
+    }
+
+    /**
      * Returns whether LeonsDB is running and ready.
      *
      * @return true if the LeonsDB plugin is enabled

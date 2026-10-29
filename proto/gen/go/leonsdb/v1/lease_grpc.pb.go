@@ -29,6 +29,7 @@ const (
 	LeaseService_Prepared_FullMethodName              = "/leonsdb.v1.LeaseService/Prepared"
 	LeaseService_GetTransactionOutcome_FullMethodName = "/leonsdb.v1.LeaseService/GetTransactionOutcome"
 	LeaseService_Expect_FullMethodName                = "/leonsdb.v1.LeaseService/Expect"
+	LeaseService_TakeBack_FullMethodName              = "/leonsdb.v1.LeaseService/TakeBack"
 )
 
 // LeaseServiceClient is the client API for LeaseService service.
@@ -73,6 +74,13 @@ type LeaseServiceClient interface {
 	// change: the owner keeps the player, and keeps saving, until the new
 	// server asks for them, so a switch that fails loses nothing.
 	Expect(ctx context.Context, in *ExpectRequest, opts ...grpc.CallOption) (*ExpectResponse, error)
+	// TakeBack is Acquire for a player still connected to a server that
+	// handed them over for a switch that did not complete. It waits up to
+	// wait_ms until nobody owns the player, but never asks the owner to hand
+	// over, and lets every waiting Acquire go first, so it never takes a
+	// player from a switch that is still in progress. Fails like Acquire if
+	// the player is still owned (or wanted) elsewhere when the wait ends.
+	TakeBack(ctx context.Context, in *AcquireLeaseRequest, opts ...grpc.CallOption) (*AcquireLeaseResponse, error)
 }
 
 type leaseServiceClient struct {
@@ -162,6 +170,16 @@ func (c *leaseServiceClient) Expect(ctx context.Context, in *ExpectRequest, opts
 	return out, nil
 }
 
+func (c *leaseServiceClient) TakeBack(ctx context.Context, in *AcquireLeaseRequest, opts ...grpc.CallOption) (*AcquireLeaseResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AcquireLeaseResponse)
+	err := c.cc.Invoke(ctx, LeaseService_TakeBack_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LeaseServiceServer is the server API for LeaseService service.
 // All implementations must embed UnimplementedLeaseServiceServer
 // for forward compatibility.
@@ -204,6 +222,13 @@ type LeaseServiceServer interface {
 	// change: the owner keeps the player, and keeps saving, until the new
 	// server asks for them, so a switch that fails loses nothing.
 	Expect(context.Context, *ExpectRequest) (*ExpectResponse, error)
+	// TakeBack is Acquire for a player still connected to a server that
+	// handed them over for a switch that did not complete. It waits up to
+	// wait_ms until nobody owns the player, but never asks the owner to hand
+	// over, and lets every waiting Acquire go first, so it never takes a
+	// player from a switch that is still in progress. Fails like Acquire if
+	// the player is still owned (or wanted) elsewhere when the wait ends.
+	TakeBack(context.Context, *AcquireLeaseRequest) (*AcquireLeaseResponse, error)
 	mustEmbedUnimplementedLeaseServiceServer()
 }
 
@@ -234,6 +259,9 @@ func (UnimplementedLeaseServiceServer) GetTransactionOutcome(context.Context, *G
 }
 func (UnimplementedLeaseServiceServer) Expect(context.Context, *ExpectRequest) (*ExpectResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Expect not implemented")
+}
+func (UnimplementedLeaseServiceServer) TakeBack(context.Context, *AcquireLeaseRequest) (*AcquireLeaseResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TakeBack not implemented")
 }
 func (UnimplementedLeaseServiceServer) mustEmbedUnimplementedLeaseServiceServer() {}
 func (UnimplementedLeaseServiceServer) testEmbeddedByValue()                      {}
@@ -375,6 +403,24 @@ func _LeaseService_Expect_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LeaseService_TakeBack_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AcquireLeaseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LeaseServiceServer).TakeBack(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LeaseService_TakeBack_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LeaseServiceServer).TakeBack(ctx, req.(*AcquireLeaseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // LeaseService_ServiceDesc is the grpc.ServiceDesc for LeaseService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -405,6 +451,10 @@ var LeaseService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Expect",
 			Handler:    _LeaseService_Expect_Handler,
+		},
+		{
+			MethodName: "TakeBack",
+			Handler:    _LeaseService_TakeBack_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

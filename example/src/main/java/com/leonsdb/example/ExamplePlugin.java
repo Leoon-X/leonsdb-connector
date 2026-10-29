@@ -5,6 +5,7 @@ package com.leonsdb.example;
 
 import com.leonsdb.connector.api.LeonsDB;
 import com.leonsdb.connector.api.LeonsDBException;
+import com.leonsdb.connector.api.Registration;
 import com.leonsdb.connector.api.TransactionAbortedException;
 import java.time.Instant;
 import java.util.concurrent.CompletionException;
@@ -27,6 +28,8 @@ import org.bukkit.plugin.java.JavaPlugin;
  */
 public final class ExamplePlugin extends JavaPlugin implements Listener {
 
+    private Registration handover;
+
     @Override
     public void onEnable() {
         // Declare the data classes once. If LeonsDB is unreachable or a
@@ -37,6 +40,21 @@ public final class ExamplePlugin extends JavaPlugin implements Listener {
         // Network chat: every server of the network gets every message.
         LeonsDB.channel("example.chat").subscribe(msg ->
                 Bukkit.broadcast(Component.text("[" + msg.sender() + "] " + msg.text())));
+        // On a server switch, right before the player's data goes to the new
+        // server: what is changed here is there when the player joins it.
+        handover = LeonsDB.onHandover(uuid -> {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player != null) {
+                stats(player).lastLocation = player.getLocation();
+            }
+        });
+    }
+
+    @Override
+    public void onDisable() {
+        if (handover != null) {
+            handover.close();
+        }
     }
 
     private static Stats stats(Player player) {
@@ -55,7 +73,11 @@ public final class ExamplePlugin extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
-        stats(event.getPlayer()).lastLocation = event.getPlayer().getLocation();
+        // Saved on a server switch too: the change follows the player and
+        // reaches their new server a moment after they joined it.
+        Stats stats = stats(event.getPlayer());
+        stats.lastLocation = event.getPlayer().getLocation();
+        stats.quits++;
     }
 
     @Override
@@ -67,7 +89,7 @@ public final class ExamplePlugin extends JavaPlugin implements Listener {
         Stats stats = stats(player);
         switch (command.getName()) {
             case "stats" -> player.sendMessage("kills=" + stats.kills + " deaths=" + stats.deaths
-                    + " coins=" + stats.coins + " firstJoin=" + stats.firstJoin
+                    + " coins=" + stats.coins + " quits=" + stats.quits + " firstJoin=" + stats.firstJoin
                     + " stash=" + (stats.stash == null ? "empty" : stats.stash.length + " slots"));
 
             case "kill" -> {

@@ -258,9 +258,43 @@ class RegionThreadsTest {
     void aHandoverSavesAndDisconnectsOnThePlayersThread() throws Exception {
         join(alice, 7);
         platform.onRegion(alice, () -> service.player(alice).get(Wallet.class).coins = 8);
+        server.nextOwnerOnRelease = "other-server"; // and keeps the player: they logged in there
         server.requestHandover(ref(alice).getPlayer());
-        await(() -> server.ownerOf(ref(alice).getPlayer()) == null, "handed over");
+        await(() -> "other-server".equals(server.ownerOf(ref(alice).getPlayer())), "handed over");
         assertEquals(8, stored(alice));
         await(() -> platform.disconnected().containsKey(alice), "disconnected after the grace period");
+    }
+
+    @Test
+    void aPlayerWhoseSwitchFailedIsTakenBackOnTheirThread() throws Exception {
+        join(alice, 7);
+        Wallet kept = platform.onRegion(alice, () -> service.player(alice).get(Wallet.class));
+        server.nextOwnerOnRelease = "other-server";
+        server.requestHandover(ref(alice).getPlayer());
+        await(() -> "other-server".equals(server.ownerOf(ref(alice).getPlayer())), "handed over");
+        platform.onRegion(alice, () -> kept.kills++);
+
+        server.letGo(ref(alice).getPlayer()); // the switch failed
+        await(() -> service.ownsPlayer(alice), "taken back");
+        assertEquals(1, (int) platform.onRegion(alice, () -> service.player(alice).get(Wallet.class).kills));
+        assertEquals(7, coins(alice));
+        assertFalse(platform.disconnected().containsKey(alice));
+    }
+
+    @Test
+    void changesInTheQuitEventAfterAHandoverAreTakenOnThePlayersThread() throws Exception {
+        join(alice, 7);
+        server.ownersApplyOwnerOps = true;
+        server.nextOwnerOnRelease = "other-server";
+        server.requestHandover(ref(alice).getPlayer());
+        await(() -> "other-server".equals(server.ownerOf(ref(alice).getPlayer())), "handed over");
+
+        // The quit event, on the player's thread.
+        platform.onRegion(alice, () -> {
+            service.player(alice).get(Wallet.class).coins += 3;
+            return service.unloadPlayer(alice);
+        }).get(5, TimeUnit.SECONDS);
+        platform.leave(alice);
+        assertEquals(10, stored(alice));
     }
 }

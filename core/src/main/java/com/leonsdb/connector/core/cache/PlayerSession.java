@@ -28,6 +28,22 @@ final class PlayerSession {
     /** Set when another server took the player; nothing may be saved any more. */
     volatile boolean lost;
 
+    /**
+     * What was saved when the player left or was handed over, per cached
+     * object: if a server switch fails, the player is taken back and what
+     * changed since then is merged in.
+     */
+    volatile Map<CachedObject<?>, Map<String, com.leonsdb.proto.v1.Value>> finals;
+
+    /** Set when the player is handed over to another server rather than leaving. */
+    volatile boolean handover;
+
+    /** True while handover listeners run: they may still change the data. */
+    volatile boolean handingOver;
+
+    /** Completes once what changed after the handover is stored; see LeonsDBService. */
+    final CompletableFuture<Void> lateChanges = new CompletableFuture<>();
+
     PlayerSession(UUID uuid, long epoch) {
         this.uuid = uuid;
         this.epoch = epoch;

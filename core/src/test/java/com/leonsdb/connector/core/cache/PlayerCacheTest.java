@@ -669,10 +669,16 @@ class PlayerCacheTest {
         stats().kills = 11;
         platform.online.remove(steve);
         service.unloadPlayer(steve);
+        // They are already joining here again, and that join is not done yet.
+        server.holdTakeBacks = new CountDownLatch(1);
+        platform.online.add(steve);
         server.holdReleases.countDown();
 
         await(() -> storedInt("kills") == 11, "the quit-time change followed the player");
         assertFalse(service.isHandedOver(steve), "nothing is left marked as handed over");
+        Thread.sleep(300); // past the handover's wait (200 ms here)
+        assertFalse(platform.disconnected.containsKey(steve), "the new join is not disconnected");
+        server.holdTakeBacks.countDown();
     }
 
     @Test

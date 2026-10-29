@@ -30,6 +30,8 @@ const (
 	LeaseService_GetTransactionOutcome_FullMethodName = "/leonsdb.v1.LeaseService/GetTransactionOutcome"
 	LeaseService_Expect_FullMethodName                = "/leonsdb.v1.LeaseService/Expect"
 	LeaseService_TakeBack_FullMethodName              = "/leonsdb.v1.LeaseService/TakeBack"
+	LeaseService_Joined_FullMethodName                = "/leonsdb.v1.LeaseService/Joined"
+	LeaseService_GetOwner_FullMethodName              = "/leonsdb.v1.LeaseService/GetOwner"
 )
 
 // LeaseServiceClient is the client API for LeaseService service.
@@ -81,6 +83,16 @@ type LeaseServiceClient interface {
 	// player from a switch that is still in progress. Fails like Acquire if
 	// the player is still owned (or wanted) elsewhere when the wait ends.
 	TakeBack(ctx context.Context, in *AcquireLeaseRequest, opts ...grpc.CallOption) (*AcquireLeaseResponse, error)
+	// Joined says a player this holder owns has joined it: the login is over
+	// and they are in the game. A holder that asked with confirms_join calls
+	// it for every player it owns, once they have joined.
+	Joined(ctx context.Context, in *JoinedRequest, opts ...grpc.CallOption) (*JoinedResponse, error)
+	// GetOwner says who owns a player now and whether the player has joined
+	// that server. A server that handed a player over and still has them
+	// connected uses it to tell a switch still in progress (the new server
+	// owns the player but they have not joined it yet) from a player who
+	// logged in somewhere else.
+	GetOwner(ctx context.Context, in *GetOwnerRequest, opts ...grpc.CallOption) (*GetOwnerResponse, error)
 }
 
 type leaseServiceClient struct {
@@ -180,6 +192,26 @@ func (c *leaseServiceClient) TakeBack(ctx context.Context, in *AcquireLeaseReque
 	return out, nil
 }
 
+func (c *leaseServiceClient) Joined(ctx context.Context, in *JoinedRequest, opts ...grpc.CallOption) (*JoinedResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(JoinedResponse)
+	err := c.cc.Invoke(ctx, LeaseService_Joined_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *leaseServiceClient) GetOwner(ctx context.Context, in *GetOwnerRequest, opts ...grpc.CallOption) (*GetOwnerResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetOwnerResponse)
+	err := c.cc.Invoke(ctx, LeaseService_GetOwner_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LeaseServiceServer is the server API for LeaseService service.
 // All implementations must embed UnimplementedLeaseServiceServer
 // for forward compatibility.
@@ -229,6 +261,16 @@ type LeaseServiceServer interface {
 	// player from a switch that is still in progress. Fails like Acquire if
 	// the player is still owned (or wanted) elsewhere when the wait ends.
 	TakeBack(context.Context, *AcquireLeaseRequest) (*AcquireLeaseResponse, error)
+	// Joined says a player this holder owns has joined it: the login is over
+	// and they are in the game. A holder that asked with confirms_join calls
+	// it for every player it owns, once they have joined.
+	Joined(context.Context, *JoinedRequest) (*JoinedResponse, error)
+	// GetOwner says who owns a player now and whether the player has joined
+	// that server. A server that handed a player over and still has them
+	// connected uses it to tell a switch still in progress (the new server
+	// owns the player but they have not joined it yet) from a player who
+	// logged in somewhere else.
+	GetOwner(context.Context, *GetOwnerRequest) (*GetOwnerResponse, error)
 	mustEmbedUnimplementedLeaseServiceServer()
 }
 
@@ -262,6 +304,12 @@ func (UnimplementedLeaseServiceServer) Expect(context.Context, *ExpectRequest) (
 }
 func (UnimplementedLeaseServiceServer) TakeBack(context.Context, *AcquireLeaseRequest) (*AcquireLeaseResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method TakeBack not implemented")
+}
+func (UnimplementedLeaseServiceServer) Joined(context.Context, *JoinedRequest) (*JoinedResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Joined not implemented")
+}
+func (UnimplementedLeaseServiceServer) GetOwner(context.Context, *GetOwnerRequest) (*GetOwnerResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetOwner not implemented")
 }
 func (UnimplementedLeaseServiceServer) mustEmbedUnimplementedLeaseServiceServer() {}
 func (UnimplementedLeaseServiceServer) testEmbeddedByValue()                      {}
@@ -421,6 +469,42 @@ func _LeaseService_TakeBack_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LeaseService_Joined_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(JoinedRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LeaseServiceServer).Joined(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LeaseService_Joined_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LeaseServiceServer).Joined(ctx, req.(*JoinedRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LeaseService_GetOwner_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetOwnerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LeaseServiceServer).GetOwner(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LeaseService_GetOwner_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LeaseServiceServer).GetOwner(ctx, req.(*GetOwnerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // LeaseService_ServiceDesc is the grpc.ServiceDesc for LeaseService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -455,6 +539,14 @@ var LeaseService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "TakeBack",
 			Handler:    _LeaseService_TakeBack_Handler,
+		},
+		{
+			MethodName: "Joined",
+			Handler:    _LeaseService_Joined_Handler,
+		},
+		{
+			MethodName: "GetOwner",
+			Handler:    _LeaseService_GetOwner_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

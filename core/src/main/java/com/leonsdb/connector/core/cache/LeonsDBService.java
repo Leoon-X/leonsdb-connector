@@ -101,6 +101,13 @@ public final class LeonsDBService implements LeonsDBProvider {
     private static final Duration UNLOAD_RETRY = Duration.ofSeconds(2);
     private static final Duration TAKE_BACK_WAIT = Duration.ofSeconds(5);
     private static final Duration TAKE_BACK_RETRY = Duration.ofSeconds(1);
+    /** How often a player handed over but still here is checked again (see checkJoinedElsewhere). */
+    private static final Duration JOIN_RECHECK = Duration.ofSeconds(1);
+    /**
+     * How long the player must have been in the game on the new server: a
+     * proxy closes the old connection a moment after the join, not at once.
+     */
+    private static final Duration JOIN_SETTLE = Duration.ofSeconds(1);
 
     private final LeonsDBClient client;
     private final Codecs codecs;
@@ -615,17 +622,70 @@ public final class LeonsDBService implements LeonsDBProvider {
                 // The proxy moves the player on once the other server has let
                 // them in. Until then, and if the switch fails, they stay here.
                 takeBack(session);
-                platform.runForPlayer(uuid, () -> {
-                    // Still here, and still owned elsewhere, long after any
-                    // switch would have completed or failed: they logged in
-                    // somewhere else. Only for this handover: after a take-back
-                    // and another switch, that one has its own wait.
-                    if (handedOver.get(uuid) == session && !session.left && platform.isOnline(uuid) && !isLoaded(uuid)) {
-                        platform.disconnect(uuid, "You joined from another server.");
-                    }
-                }, settings.handoverGrace());
+                platform.runForPlayer(uuid, () -> checkJoinedElsewhere(session), settings.handoverGrace());
             });
         }, Duration.ZERO);
+    }
+
+    /** Still handed over, and still here? Only for this handover: after a take-back and another switch, that one has its own wait. */
+    private boolean stillHandedOverHere(PlayerSession session) {
+        UUID uuid = session.uuid;
+        return !shutDown && handedOver.get(uuid) == session && !session.left && platform.isOnline(uuid) && !isLoaded(uuid);
+    }
+
+    /**
+     * On the player's thread, once the grace period of a handover is over:
+     * the player is still here, and owned elsewhere. They are disconnected
+     * only if they logged in somewhere else, that is, the new owner says
+     * they have joined it. Owning them is not enough: a switch whose login
+     * is slow (a profile lookup that hangs, for example) owns the player
+     * long before they join, and must not cost them their connection.
+     * Asked again until the player leaves or is taken back.
+     */
+    private void checkJoinedElsewhere(PlayerSession session) {
+        if (!stillHandedOverHere(session)) {
+            return;
+        }
+        UUID uuid = session.uuid;
+        leases.owner(uuid).whenComplete((owner, err) -> {
+            boolean elsewhere;
+            if (takeBackUnsupported) {
+                elsewhere = true; // they can never be taken back here: as before (see takeBack)
+            } else if (err == null) {
+                elsewhere = owner.getOwned() && !owner.getHolderId().equals(leases.holderId())
+                        && (!owner.getConfirmsJoin() // a connector from before join confirmations: as before
+                        || (owner.getJoined() && owner.getJoinedMsAgo() >= JOIN_SETTLE.toMillis()));
+            } else {
+                Throwable cause = err instanceof java.util.concurrent.CompletionException && err.getCause() != null
+                        ? err.getCause() : err;
+                // A LeonsDB from before join confirmations: as before. Unreachable: ask again later.
+                elsewhere = cause instanceof RequestException re && re.code() == io.grpc.Status.Code.UNIMPLEMENTED;
+            }
+            if (elsewhere) {
+                platform.runForPlayer(uuid, () -> {
+                    if (stillHandedOverHere(session)) {
+                        platform.disconnect(uuid, "You joined from another server.");
+                    }
+                }, Duration.ZERO);
+            } else {
+                platform.runForPlayer(uuid, () -> checkJoinedElsewhere(session), JOIN_RECHECK);
+            }
+        });
+    }
+
+    /**
+     * A player loaded here has joined: the login is over and they are in the
+     * game. Call on the player's thread (Paper: a join event). The server
+     * they came from waits for this before it decides they logged in
+     * somewhere else, instead of disconnecting them during a slow switch.
+     *
+     * @param uuid the player
+     */
+    public void playerJoined(UUID uuid) {
+        PlayerSession session = sessions.get(uuid);
+        if (session != null && !session.isUnloading() && !session.lost) {
+            leases.joined(uuid);
+        }
     }
 
     /**
@@ -709,6 +769,7 @@ public final class LeonsDBService implements LeonsDBProvider {
         CompletableFuture<Void> saved;
         if (stillHere) {
             log.info("Took " + uuid + " back: their switch to another server did not complete.");
+            leases.joined(uuid); // they are in the game here, as they never left
             // Changed since the handover, and waited for with update() or
             // save(): saved now, under the new ownership.
             List<CompletableFuture<Void>> saves = new ArrayList<>();

@@ -437,10 +437,79 @@ class PlayerCacheTest {
         assertEquals(9, storedInt("kills"), "data saved before releasing");
         assertFalse(service.ownsPlayer(steve));
 
-        // Still on this server after the grace period, and the other server
-        // keeps the player: they logged in elsewhere.
-        await(() -> platform.disconnected.containsKey(steve), "disconnected after the grace period");
+        // Still on this server, and the player is in the game on the other
+        // server: they logged in elsewhere.
+        server.joinedThere(playerBytes());
+        await(() -> platform.disconnected.containsKey(steve), "disconnected once they joined elsewhere");
         assertFalse(service.ownsPlayer(steve), "never taken from the other server");
+    }
+
+    @Test
+    void aSwitchWhoseLoginIsSlowIsNeverDisconnected() throws Exception {
+        service.loadPlayer(steve);
+        platform.online.add(steve);
+        server.nextOwnerOnRelease = "other-server";
+        server.requestHandover(playerBytes());
+        await(() -> "other-server".equals(server.ownerOf(playerBytes())), "handed over");
+
+        // The other server owns the player, but their login there takes long
+        // (a profile lookup that hangs): many grace periods pass.
+        Thread.sleep(2500);
+        assertFalse(platform.disconnected.containsKey(steve), "not disconnected while the login there is going on");
+
+        // The login completes, and the proxy moves the player on at once.
+        server.joinedThere(playerBytes());
+        platform.online.remove(steve);
+        service.unloadPlayer(steve);
+        Thread.sleep(1500);
+        assertFalse(platform.disconnected.containsKey(steve), "never disconnected");
+    }
+
+    @Test
+    void aPlayerWhoJustJoinedElsewhereIsGivenAMomentToBeMovedOn() throws Exception {
+        service.loadPlayer(steve);
+        platform.online.add(steve);
+        server.nextOwnerOnRelease = "other-server";
+        server.requestHandover(playerBytes());
+        await(() -> "other-server".equals(server.ownerOf(playerBytes())), "handed over");
+
+        // Joined there just as the grace period ends; the proxy closes the
+        // connection here a moment later.
+        server.joinedThere(playerBytes());
+        Thread.sleep(300);
+        platform.online.remove(steve);
+        service.unloadPlayer(steve);
+        Thread.sleep(1500);
+        assertFalse(platform.disconnected.containsKey(steve), "never disconnected");
+    }
+
+    @Test
+    void withAServerThatDoesNotConfirmJoinsThePlayerIsDisconnectedAsBefore() throws Exception {
+        service.loadPlayer(steve);
+        platform.online.add(steve);
+        server.nextOwnerOnRelease = "other-server";
+        server.nextOwnerConfirmsJoin = false; // runs a connector from before join confirmations
+        server.requestHandover(playerBytes());
+        await(() -> platform.disconnected.containsKey(steve), "disconnected after the grace period");
+    }
+
+    @Test
+    void withALeonsDBWithoutJoinConfirmationsThePlayerIsDisconnectedAsBefore() throws Exception {
+        server.noJoinConfirmations = true;
+        service.loadPlayer(steve);
+        platform.online.add(steve);
+        server.nextOwnerOnRelease = "other-server";
+        server.requestHandover(playerBytes());
+        await(() -> platform.disconnected.containsKey(steve), "disconnected after the grace period");
+    }
+
+    @Test
+    void aJoinIsConfirmedToLeonsDB() throws Exception {
+        service.loadPlayer(steve);
+        Thread.sleep(100);
+        assertFalse(server.joinConfirmed(playerBytes()), "not before the player joined");
+        service.playerJoined(steve);
+        await(() -> server.joinConfirmed(playerBytes()), "confirmed once joined");
     }
 
     @Test

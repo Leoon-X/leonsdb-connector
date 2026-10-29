@@ -64,6 +64,18 @@ service LeaseService {
   // player from a switch that is still in progress. Fails like Acquire if
   // the player is still owned (or wanted) elsewhere when the wait ends.
   rpc TakeBack(AcquireLeaseRequest) returns (AcquireLeaseResponse);
+
+  // Joined says a player this holder owns has joined it: the login is over
+  // and they are in the game. A holder that asked with confirms_join calls
+  // it for every player it owns, once they have joined.
+  rpc Joined(JoinedRequest) returns (JoinedResponse);
+
+  // GetOwner says who owns a player now and whether the player has joined
+  // that server. A server that handed a player over and still has them
+  // connected uses it to tell a switch still in progress (the new server
+  // owns the player but they have not joined it yet) from a player who
+  // logged in somewhere else.
+  rpc GetOwner(GetOwnerRequest) returns (GetOwnerResponse);
 }
 
 message AcquireLeaseRequest {
@@ -79,6 +91,8 @@ message AcquireLeaseRequest {
   // ("namespace.collection") once ownership is granted, so that joining
   // takes one round trip.
   repeated string load = 5;
+  // This holder will call Joined once the player has joined it.
+  bool confirms_join = 7;
 }
 
 message AcquireLeaseResponse {
@@ -218,4 +232,36 @@ message ExpectRequest {
 message ExpectResponse {
   // True if a server owned the player and was told.
   bool owner_told = 1;
+}
+
+message JoinedRequest {
+  // The player's UUID, 16 bytes.
+  bytes player = 1;
+  string holder_id = 2;
+  // The epoch of the lease the player joined under.
+  uint64 epoch = 3;
+}
+
+message JoinedResponse {
+  // False if the holder did not own the player with this epoch (any more).
+  bool confirmed = 1;
+}
+
+message GetOwnerRequest {
+  // The player's UUID, 16 bytes.
+  bytes player = 1;
+}
+
+message GetOwnerResponse {
+  // False if no server owns the player now; the other fields are then empty.
+  bool owned = 1;
+  string holder_id = 2;
+  string holder_name = 3;
+  // The owner said it calls Joined. If false, whether the player has joined
+  // it is unknown: it runs a connector from before join confirmations.
+  bool confirms_join = 4;
+  // The owner confirmed the player has joined it.
+  bool joined = 5;
+  // How long ago the owner confirmed it, in milliseconds.
+  uint64 joined_ms_ago = 6;
 }

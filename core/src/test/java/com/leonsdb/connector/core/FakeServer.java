@@ -92,6 +92,10 @@ public final class FakeServer implements AutoCloseable {
     public final java.util.concurrent.atomic.AtomicInteger takeBacks = new java.util.concurrent.atomic.AtomicInteger();
     /** Who gets a player the moment its owner releases it (the server it switches to), or null. */
     public volatile String nextOwnerOnRelease;
+    /** Whether that server confirms joins (a connector from before join confirmations does not). */
+    public volatile boolean nextOwnerConfirmsJoin = true;
+    /** Behave like a server from before join confirmations: no Joined, no GetOwner. */
+    public volatile boolean noJoinConfirmations;
     /** Reads of single records (Get calls). */
     public final java.util.concurrent.atomic.AtomicInteger gets = new java.util.concurrent.atomic.AtomicInteger();
     private final Map<ByteString, TransactResponse> committedTransactions = new HashMap<>();
@@ -100,6 +104,10 @@ public final class FakeServer implements AutoCloseable {
     public static final class Lease {
         public String holder;
         public long epoch;
+        /** The holder calls Joined. */
+        public boolean confirmsJoin;
+        /** When the holder said the player joined it, or 0. */
+        public long joinedAtNanos;
     }
 
     private final Map<ByteString, Lease> leases = new HashMap<>();
@@ -155,7 +163,32 @@ public final class FakeServer implements AutoCloseable {
         Lease l = leases.get(player);
         if (l != null) {
             l.holder = null;
+            l.joinedAtNanos = 0;
         }
+    }
+
+    /**
+     * The server that owns the player says they joined it, as when the
+     * player is in the game there.
+     *
+     * @param player 16-byte UUID
+     */
+    public synchronized void joinedThere(ByteString player) {
+        Lease l = leases.get(player);
+        if (l != null && l.holder != null && l.joinedAtNanos == 0) {
+            l.joinedAtNanos = System.nanoTime();
+        }
+    }
+
+    /**
+     * Whether the owner confirmed the player joined it.
+     *
+     * @param player 16-byte UUID
+     * @return true once confirmed
+     */
+    public synchronized boolean joinConfirmed(ByteString player) {
+        Lease l = leases.get(player);
+        return l != null && l.holder != null && l.joinedAtNanos != 0;
     }
 
     /**
@@ -440,7 +473,9 @@ public final class FakeServer implements AutoCloseable {
                 if (l.holder == null) {
                     l.holder = req.getHolderId();
                     l.epoch++;
+                    l.joinedAtNanos = 0;
                 }
+                l.confirmsJoin = req.getConfirmsJoin() && !noJoinConfirmations;
                 epoch = l.epoch;
             }
             var resp = AcquireLeaseResponse.newBuilder().setEpoch(epoch).setTtlMs(10_000);
@@ -524,12 +559,14 @@ public final class FakeServer implements AutoCloseable {
                 Lease l = leases.get(req.getPlayer());
                 if (l != null && req.getHolderId().equals(l.holder) && l.epoch == req.getEpoch()) {
                     l.holder = null;
+                    l.joinedAtNanos = 0;
                     released = true;
                     String next = nextOwnerOnRelease;
                     if (next != null) {
                         nextOwnerOnRelease = null;
                         l.holder = next;
                         l.epoch++;
+                        l.confirmsJoin = nextOwnerConfirmsJoin;
                     }
                 }
             }
@@ -541,6 +578,46 @@ public final class FakeServer implements AutoCloseable {
         public void watch(WatchLeasesRequest req,
                           StreamObserver<LeaseEvent> obs) {
             watchers.add(obs);
+        }
+
+        @Override
+        public void joined(com.leonsdb.proto.v1.JoinedRequest req, StreamObserver<com.leonsdb.proto.v1.JoinedResponse> obs) {
+            if (noJoinConfirmations) {
+                obs.onError(Status.UNIMPLEMENTED.asRuntimeException());
+                return;
+            }
+            boolean confirmed = false;
+            synchronized (FakeServer.this) {
+                Lease l = leases.get(req.getPlayer());
+                if (l != null && req.getHolderId().equals(l.holder) && l.epoch == req.getEpoch()) {
+                    confirmed = true;
+                    if (l.joinedAtNanos == 0) {
+                        l.joinedAtNanos = System.nanoTime();
+                    }
+                }
+            }
+            obs.onNext(com.leonsdb.proto.v1.JoinedResponse.newBuilder().setConfirmed(confirmed).build());
+            obs.onCompleted();
+        }
+
+        @Override
+        public void getOwner(com.leonsdb.proto.v1.GetOwnerRequest req, StreamObserver<com.leonsdb.proto.v1.GetOwnerResponse> obs) {
+            if (noJoinConfirmations) {
+                obs.onError(Status.UNIMPLEMENTED.asRuntimeException());
+                return;
+            }
+            var resp = com.leonsdb.proto.v1.GetOwnerResponse.newBuilder();
+            synchronized (FakeServer.this) {
+                Lease l = leases.get(req.getPlayer());
+                if (l != null && l.holder != null) {
+                    resp.setOwned(true).setHolderId(l.holder).setHolderName(l.holder).setConfirmsJoin(l.confirmsJoin);
+                    if (l.joinedAtNanos != 0) {
+                        resp.setJoined(true).setJoinedMsAgo((System.nanoTime() - l.joinedAtNanos) / 1_000_000);
+                    }
+                }
+            }
+            obs.onNext(resp.build());
+            obs.onCompleted();
         }
     }
 

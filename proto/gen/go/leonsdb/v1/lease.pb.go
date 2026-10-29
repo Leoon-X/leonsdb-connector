@@ -158,7 +158,9 @@ type AcquireLeaseRequest struct {
 	// Also read the player's record in each of these player collections
 	// ("namespace.collection") once ownership is granted, so that joining
 	// takes one round trip.
-	Load          []string `protobuf:"bytes,5,rep,name=load,proto3" json:"load,omitempty"`
+	Load []string `protobuf:"bytes,5,rep,name=load,proto3" json:"load,omitempty"`
+	// This holder will call Joined once the player has joined it.
+	ConfirmsJoin  bool `protobuf:"varint,7,opt,name=confirms_join,json=confirmsJoin,proto3" json:"confirms_join,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -226,6 +228,13 @@ func (x *AcquireLeaseRequest) GetLoad() []string {
 		return x.Load
 	}
 	return nil
+}
+
+func (x *AcquireLeaseRequest) GetConfirmsJoin() bool {
+	if x != nil {
+		return x.ConfirmsJoin
+	}
+	return false
 }
 
 type AcquireLeaseResponse struct {
@@ -1064,19 +1073,261 @@ func (x *ExpectResponse) GetOwnerTold() bool {
 	return false
 }
 
+type JoinedRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The player's UUID, 16 bytes.
+	Player   []byte `protobuf:"bytes,1,opt,name=player,proto3" json:"player,omitempty"`
+	HolderId string `protobuf:"bytes,2,opt,name=holder_id,json=holderId,proto3" json:"holder_id,omitempty"`
+	// The epoch of the lease the player joined under.
+	Epoch         uint64 `protobuf:"varint,3,opt,name=epoch,proto3" json:"epoch,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *JoinedRequest) Reset() {
+	*x = JoinedRequest{}
+	mi := &file_leonsdb_v1_lease_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JoinedRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JoinedRequest) ProtoMessage() {}
+
+func (x *JoinedRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_leonsdb_v1_lease_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JoinedRequest.ProtoReflect.Descriptor instead.
+func (*JoinedRequest) Descriptor() ([]byte, []int) {
+	return file_leonsdb_v1_lease_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *JoinedRequest) GetPlayer() []byte {
+	if x != nil {
+		return x.Player
+	}
+	return nil
+}
+
+func (x *JoinedRequest) GetHolderId() string {
+	if x != nil {
+		return x.HolderId
+	}
+	return ""
+}
+
+func (x *JoinedRequest) GetEpoch() uint64 {
+	if x != nil {
+		return x.Epoch
+	}
+	return 0
+}
+
+type JoinedResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// False if the holder did not own the player with this epoch (any more).
+	Confirmed     bool `protobuf:"varint,1,opt,name=confirmed,proto3" json:"confirmed,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *JoinedResponse) Reset() {
+	*x = JoinedResponse{}
+	mi := &file_leonsdb_v1_lease_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JoinedResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JoinedResponse) ProtoMessage() {}
+
+func (x *JoinedResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_leonsdb_v1_lease_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JoinedResponse.ProtoReflect.Descriptor instead.
+func (*JoinedResponse) Descriptor() ([]byte, []int) {
+	return file_leonsdb_v1_lease_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *JoinedResponse) GetConfirmed() bool {
+	if x != nil {
+		return x.Confirmed
+	}
+	return false
+}
+
+type GetOwnerRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The player's UUID, 16 bytes.
+	Player        []byte `protobuf:"bytes,1,opt,name=player,proto3" json:"player,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetOwnerRequest) Reset() {
+	*x = GetOwnerRequest{}
+	mi := &file_leonsdb_v1_lease_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetOwnerRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetOwnerRequest) ProtoMessage() {}
+
+func (x *GetOwnerRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_leonsdb_v1_lease_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetOwnerRequest.ProtoReflect.Descriptor instead.
+func (*GetOwnerRequest) Descriptor() ([]byte, []int) {
+	return file_leonsdb_v1_lease_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *GetOwnerRequest) GetPlayer() []byte {
+	if x != nil {
+		return x.Player
+	}
+	return nil
+}
+
+type GetOwnerResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// False if no server owns the player now; the other fields are then empty.
+	Owned      bool   `protobuf:"varint,1,opt,name=owned,proto3" json:"owned,omitempty"`
+	HolderId   string `protobuf:"bytes,2,opt,name=holder_id,json=holderId,proto3" json:"holder_id,omitempty"`
+	HolderName string `protobuf:"bytes,3,opt,name=holder_name,json=holderName,proto3" json:"holder_name,omitempty"`
+	// The owner said it calls Joined. If false, whether the player has joined
+	// it is unknown: it runs a connector from before join confirmations.
+	ConfirmsJoin bool `protobuf:"varint,4,opt,name=confirms_join,json=confirmsJoin,proto3" json:"confirms_join,omitempty"`
+	// The owner confirmed the player has joined it.
+	Joined bool `protobuf:"varint,5,opt,name=joined,proto3" json:"joined,omitempty"`
+	// How long ago the owner confirmed it, in milliseconds.
+	JoinedMsAgo   uint64 `protobuf:"varint,6,opt,name=joined_ms_ago,json=joinedMsAgo,proto3" json:"joined_ms_ago,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetOwnerResponse) Reset() {
+	*x = GetOwnerResponse{}
+	mi := &file_leonsdb_v1_lease_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetOwnerResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetOwnerResponse) ProtoMessage() {}
+
+func (x *GetOwnerResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_leonsdb_v1_lease_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetOwnerResponse.ProtoReflect.Descriptor instead.
+func (*GetOwnerResponse) Descriptor() ([]byte, []int) {
+	return file_leonsdb_v1_lease_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *GetOwnerResponse) GetOwned() bool {
+	if x != nil {
+		return x.Owned
+	}
+	return false
+}
+
+func (x *GetOwnerResponse) GetHolderId() string {
+	if x != nil {
+		return x.HolderId
+	}
+	return ""
+}
+
+func (x *GetOwnerResponse) GetHolderName() string {
+	if x != nil {
+		return x.HolderName
+	}
+	return ""
+}
+
+func (x *GetOwnerResponse) GetConfirmsJoin() bool {
+	if x != nil {
+		return x.ConfirmsJoin
+	}
+	return false
+}
+
+func (x *GetOwnerResponse) GetJoined() bool {
+	if x != nil {
+		return x.Joined
+	}
+	return false
+}
+
+func (x *GetOwnerResponse) GetJoinedMsAgo() uint64 {
+	if x != nil {
+		return x.JoinedMsAgo
+	}
+	return 0
+}
+
 var File_leonsdb_v1_lease_proto protoreflect.FileDescriptor
 
 const file_leonsdb_v1_lease_proto_rawDesc = "" +
 	"\n" +
 	"\x16leonsdb/v1/lease.proto\x12\n" +
-	"leonsdb.v1\x1a\x15leonsdb/v1/data.proto\"\x98\x01\n" +
+	"leonsdb.v1\x1a\x15leonsdb/v1/data.proto\"\xbd\x01\n" +
 	"\x13AcquireLeaseRequest\x12\x16\n" +
 	"\x06player\x18\x01 \x01(\fR\x06player\x12\x1b\n" +
 	"\tholder_id\x18\x02 \x01(\tR\bholderId\x12\x1f\n" +
 	"\vholder_name\x18\x03 \x01(\tR\n" +
 	"holderName\x12\x17\n" +
 	"\await_ms\x18\x04 \x01(\rR\x06waitMs\x12\x12\n" +
-	"\x04load\x18\x05 \x03(\tR\x04load\"\x89\x01\n" +
+	"\x04load\x18\x05 \x03(\tR\x04load\x12#\n" +
+	"\rconfirms_join\x18\a \x01(\bR\fconfirmsJoin\"\x89\x01\n" +
 	"\x14AcquireLeaseResponse\x12\x14\n" +
 	"\x05epoch\x18\x01 \x01(\x04R\x05epoch\x12\x15\n" +
 	"\x06ttl_ms\x18\x02 \x01(\rR\x05ttlMs\x12,\n" +
@@ -1160,7 +1411,23 @@ const file_leonsdb_v1_lease_proto_rawDesc = "" +
 	"\x06target\x18\x02 \x01(\tR\x06target\"/\n" +
 	"\x0eExpectResponse\x12\x1d\n" +
 	"\n" +
-	"owner_told\x18\x01 \x01(\bR\townerTold2\xfc\x04\n" +
+	"owner_told\x18\x01 \x01(\bR\townerTold\"Z\n" +
+	"\rJoinedRequest\x12\x16\n" +
+	"\x06player\x18\x01 \x01(\fR\x06player\x12\x1b\n" +
+	"\tholder_id\x18\x02 \x01(\tR\bholderId\x12\x14\n" +
+	"\x05epoch\x18\x03 \x01(\x04R\x05epoch\".\n" +
+	"\x0eJoinedResponse\x12\x1c\n" +
+	"\tconfirmed\x18\x01 \x01(\bR\tconfirmed\")\n" +
+	"\x0fGetOwnerRequest\x12\x16\n" +
+	"\x06player\x18\x01 \x01(\fR\x06player\"\xc7\x01\n" +
+	"\x10GetOwnerResponse\x12\x14\n" +
+	"\x05owned\x18\x01 \x01(\bR\x05owned\x12\x1b\n" +
+	"\tholder_id\x18\x02 \x01(\tR\bholderId\x12\x1f\n" +
+	"\vholder_name\x18\x03 \x01(\tR\n" +
+	"holderName\x12#\n" +
+	"\rconfirms_join\x18\x04 \x01(\bR\fconfirmsJoin\x12\x16\n" +
+	"\x06joined\x18\x05 \x01(\bR\x06joined\x12\"\n" +
+	"\rjoined_ms_ago\x18\x06 \x01(\x04R\vjoinedMsAgo2\x84\x06\n" +
 	"\fLeaseService\x12L\n" +
 	"\aAcquire\x12\x1f.leonsdb.v1.AcquireLeaseRequest\x1a .leonsdb.v1.AcquireLeaseResponse\x12H\n" +
 	"\x05Renew\x12\x1e.leonsdb.v1.RenewLeasesRequest\x1a\x1f.leonsdb.v1.RenewLeasesResponse\x12L\n" +
@@ -1169,7 +1436,9 @@ const file_leonsdb_v1_lease_proto_rawDesc = "" +
 	"\bPrepared\x12\x1b.leonsdb.v1.PreparedRequest\x1a\x1c.leonsdb.v1.PreparedResponse\x12l\n" +
 	"\x15GetTransactionOutcome\x12(.leonsdb.v1.GetTransactionOutcomeRequest\x1a).leonsdb.v1.GetTransactionOutcomeResponse\x12?\n" +
 	"\x06Expect\x12\x19.leonsdb.v1.ExpectRequest\x1a\x1a.leonsdb.v1.ExpectResponse\x12M\n" +
-	"\bTakeBack\x12\x1f.leonsdb.v1.AcquireLeaseRequest\x1a .leonsdb.v1.AcquireLeaseResponseBl\n" +
+	"\bTakeBack\x12\x1f.leonsdb.v1.AcquireLeaseRequest\x1a .leonsdb.v1.AcquireLeaseResponse\x12?\n" +
+	"\x06Joined\x12\x19.leonsdb.v1.JoinedRequest\x1a\x1a.leonsdb.v1.JoinedResponse\x12E\n" +
+	"\bGetOwner\x12\x1b.leonsdb.v1.GetOwnerRequest\x1a\x1c.leonsdb.v1.GetOwnerResponseBl\n" +
 	"\x14com.leonsdb.proto.v1B\n" +
 	"LeaseProtoP\x01ZFgithub.com/Leoon-X/leonsdb-connector/proto/gen/go/leonsdb/v1;leonsdbv1b\x06proto3"
 
@@ -1186,7 +1455,7 @@ func file_leonsdb_v1_lease_proto_rawDescGZIP() []byte {
 }
 
 var file_leonsdb_v1_lease_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_leonsdb_v1_lease_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_leonsdb_v1_lease_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_leonsdb_v1_lease_proto_goTypes = []any{
 	(LeaseEvent_Kind)(0),                       // 0: leonsdb.v1.LeaseEvent.Kind
 	(GetTransactionOutcomeResponse_Outcome)(0), // 1: leonsdb.v1.GetTransactionOutcomeResponse.Outcome
@@ -1204,18 +1473,22 @@ var file_leonsdb_v1_lease_proto_goTypes = []any{
 	(*GetTransactionOutcomeResponse)(nil),      // 13: leonsdb.v1.GetTransactionOutcomeResponse
 	(*ExpectRequest)(nil),                      // 14: leonsdb.v1.ExpectRequest
 	(*ExpectResponse)(nil),                     // 15: leonsdb.v1.ExpectResponse
-	(*Record)(nil),                             // 16: leonsdb.v1.Record
-	(*RecordRef)(nil),                          // 17: leonsdb.v1.RecordRef
-	(*Operation)(nil),                          // 18: leonsdb.v1.Operation
-	(*Condition)(nil),                          // 19: leonsdb.v1.Condition
+	(*JoinedRequest)(nil),                      // 16: leonsdb.v1.JoinedRequest
+	(*JoinedResponse)(nil),                     // 17: leonsdb.v1.JoinedResponse
+	(*GetOwnerRequest)(nil),                    // 18: leonsdb.v1.GetOwnerRequest
+	(*GetOwnerResponse)(nil),                   // 19: leonsdb.v1.GetOwnerResponse
+	(*Record)(nil),                             // 20: leonsdb.v1.Record
+	(*RecordRef)(nil),                          // 21: leonsdb.v1.RecordRef
+	(*Operation)(nil),                          // 22: leonsdb.v1.Operation
+	(*Condition)(nil),                          // 23: leonsdb.v1.Condition
 }
 var file_leonsdb_v1_lease_proto_depIdxs = []int32{
-	16, // 0: leonsdb.v1.AcquireLeaseResponse.records:type_name -> leonsdb.v1.Record
+	20, // 0: leonsdb.v1.AcquireLeaseResponse.records:type_name -> leonsdb.v1.Record
 	0,  // 1: leonsdb.v1.LeaseEvent.kind:type_name -> leonsdb.v1.LeaseEvent.Kind
-	17, // 2: leonsdb.v1.LeaseEvent.ref:type_name -> leonsdb.v1.RecordRef
-	18, // 3: leonsdb.v1.LeaseEvent.operations:type_name -> leonsdb.v1.Operation
-	19, // 4: leonsdb.v1.LeaseEvent.conditions:type_name -> leonsdb.v1.Condition
-	18, // 5: leonsdb.v1.PreparedRequest.operations:type_name -> leonsdb.v1.Operation
+	21, // 2: leonsdb.v1.LeaseEvent.ref:type_name -> leonsdb.v1.RecordRef
+	22, // 3: leonsdb.v1.LeaseEvent.operations:type_name -> leonsdb.v1.Operation
+	23, // 4: leonsdb.v1.LeaseEvent.conditions:type_name -> leonsdb.v1.Condition
+	22, // 5: leonsdb.v1.PreparedRequest.operations:type_name -> leonsdb.v1.Operation
 	1,  // 6: leonsdb.v1.GetTransactionOutcomeResponse.outcome:type_name -> leonsdb.v1.GetTransactionOutcomeResponse.Outcome
 	2,  // 7: leonsdb.v1.LeaseService.Acquire:input_type -> leonsdb.v1.AcquireLeaseRequest
 	4,  // 8: leonsdb.v1.LeaseService.Renew:input_type -> leonsdb.v1.RenewLeasesRequest
@@ -1225,16 +1498,20 @@ var file_leonsdb_v1_lease_proto_depIdxs = []int32{
 	12, // 12: leonsdb.v1.LeaseService.GetTransactionOutcome:input_type -> leonsdb.v1.GetTransactionOutcomeRequest
 	14, // 13: leonsdb.v1.LeaseService.Expect:input_type -> leonsdb.v1.ExpectRequest
 	2,  // 14: leonsdb.v1.LeaseService.TakeBack:input_type -> leonsdb.v1.AcquireLeaseRequest
-	3,  // 15: leonsdb.v1.LeaseService.Acquire:output_type -> leonsdb.v1.AcquireLeaseResponse
-	5,  // 16: leonsdb.v1.LeaseService.Renew:output_type -> leonsdb.v1.RenewLeasesResponse
-	7,  // 17: leonsdb.v1.LeaseService.Release:output_type -> leonsdb.v1.ReleaseLeaseResponse
-	9,  // 18: leonsdb.v1.LeaseService.Watch:output_type -> leonsdb.v1.LeaseEvent
-	11, // 19: leonsdb.v1.LeaseService.Prepared:output_type -> leonsdb.v1.PreparedResponse
-	13, // 20: leonsdb.v1.LeaseService.GetTransactionOutcome:output_type -> leonsdb.v1.GetTransactionOutcomeResponse
-	15, // 21: leonsdb.v1.LeaseService.Expect:output_type -> leonsdb.v1.ExpectResponse
-	3,  // 22: leonsdb.v1.LeaseService.TakeBack:output_type -> leonsdb.v1.AcquireLeaseResponse
-	15, // [15:23] is the sub-list for method output_type
-	7,  // [7:15] is the sub-list for method input_type
+	16, // 15: leonsdb.v1.LeaseService.Joined:input_type -> leonsdb.v1.JoinedRequest
+	18, // 16: leonsdb.v1.LeaseService.GetOwner:input_type -> leonsdb.v1.GetOwnerRequest
+	3,  // 17: leonsdb.v1.LeaseService.Acquire:output_type -> leonsdb.v1.AcquireLeaseResponse
+	5,  // 18: leonsdb.v1.LeaseService.Renew:output_type -> leonsdb.v1.RenewLeasesResponse
+	7,  // 19: leonsdb.v1.LeaseService.Release:output_type -> leonsdb.v1.ReleaseLeaseResponse
+	9,  // 20: leonsdb.v1.LeaseService.Watch:output_type -> leonsdb.v1.LeaseEvent
+	11, // 21: leonsdb.v1.LeaseService.Prepared:output_type -> leonsdb.v1.PreparedResponse
+	13, // 22: leonsdb.v1.LeaseService.GetTransactionOutcome:output_type -> leonsdb.v1.GetTransactionOutcomeResponse
+	15, // 23: leonsdb.v1.LeaseService.Expect:output_type -> leonsdb.v1.ExpectResponse
+	3,  // 24: leonsdb.v1.LeaseService.TakeBack:output_type -> leonsdb.v1.AcquireLeaseResponse
+	17, // 25: leonsdb.v1.LeaseService.Joined:output_type -> leonsdb.v1.JoinedResponse
+	19, // 26: leonsdb.v1.LeaseService.GetOwner:output_type -> leonsdb.v1.GetOwnerResponse
+	17, // [17:27] is the sub-list for method output_type
+	7,  // [7:17] is the sub-list for method input_type
 	7,  // [7:7] is the sub-list for extension type_name
 	7,  // [7:7] is the sub-list for extension extendee
 	0,  // [0:7] is the sub-list for field type_name
@@ -1253,7 +1530,7 @@ func file_leonsdb_v1_lease_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_leonsdb_v1_lease_proto_rawDesc), len(file_leonsdb_v1_lease_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   14,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -22,6 +22,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerLoginEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -172,6 +173,15 @@ public final class LeonsDBPlugin extends JavaPlugin implements Listener {
         if (event.getResult() != PlayerLoginEvent.Result.ALLOWED) {
             service.unloadPlayer(event.getPlayer().getUniqueId());
         }
+    }
+
+    /**
+     * The player is in the game: the server they came from may now treat
+     * them as logged in here (see LeonsDBService#playerJoined).
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onJoin(PlayerJoinEvent event) {
+        service.playerJoined(event.getPlayer().getUniqueId());
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

@@ -345,9 +345,26 @@ public final class LeonsDBClient implements AutoCloseable {
      */
     public CompletableFuture<AcquireLeaseResponse> acquireLease(ByteString player, String holderId, String holderName, long waitMillis,
                                                               java.util.List<String> load) {
+        return acquireLease(player, holderId, holderName, waitMillis, load, false);
+    }
+
+    /**
+     * Like {@link #acquireLease(ByteString, String, String, long, java.util.List)},
+     * for a holder that calls {@link #joined} once the player has joined.
+     *
+     * @param player       the player's UUID bytes
+     * @param holderId     this connector instance's identity
+     * @param holderName   this server's name
+     * @param waitMillis   how long to wait for a handover
+     * @param load         collections as "namespace.collection"
+     * @param confirmsJoin whether this holder confirms joins
+     * @return the epoch and the records that exist
+     */
+    public CompletableFuture<AcquireLeaseResponse> acquireLease(ByteString player, String holderId, String holderName, long waitMillis,
+                                                              java.util.List<String> load, boolean confirmsJoin) {
         var req = AcquireLeaseRequest.newBuilder()
                 .setPlayer(player).setHolderId(holderId).setHolderName(holderName)
-                .setWaitMs((int) Math.min(waitMillis, 30_000)).addAllLoad(load).build();
+                .setWaitMs((int) Math.min(waitMillis, 30_000)).addAllLoad(load).setConfirmsJoin(confirmsJoin).build();
         // The call itself may take as long as the wait, plus the usual timeout.
         var stub = leases.withDeadlineAfter(timeoutMillis() + waitMillis, TimeUnit.MILLISECONDS);
         return call("AcquireLease", stub.acquire(req));
@@ -369,11 +386,56 @@ public final class LeonsDBClient implements AutoCloseable {
      */
     public CompletableFuture<AcquireLeaseResponse> takeBackLease(ByteString player, String holderId, String holderName,
                                                                long waitMillis, java.util.List<String> load) {
+        return takeBackLease(player, holderId, holderName, waitMillis, load, false);
+    }
+
+    /**
+     * Like {@link #takeBackLease(ByteString, String, String, long, java.util.List)},
+     * for a holder that calls {@link #joined} for its players.
+     *
+     * @param player       the player's UUID bytes
+     * @param holderId     this connector instance's identity
+     * @param holderName   this server's name
+     * @param waitMillis   how long to wait for the player to be free
+     * @param load         collections as "namespace.collection"
+     * @param confirmsJoin whether this holder confirms joins
+     * @return the epoch and the records that exist
+     */
+    public CompletableFuture<AcquireLeaseResponse> takeBackLease(ByteString player, String holderId, String holderName,
+                                                               long waitMillis, java.util.List<String> load, boolean confirmsJoin) {
         var req = AcquireLeaseRequest.newBuilder()
                 .setPlayer(player).setHolderId(holderId).setHolderName(holderName)
-                .setWaitMs((int) Math.min(waitMillis, 30_000)).addAllLoad(load).build();
+                .setWaitMs((int) Math.min(waitMillis, 30_000)).addAllLoad(load).setConfirmsJoin(confirmsJoin).build();
         var stub = leases.withDeadlineAfter(timeoutMillis() + waitMillis, TimeUnit.MILLISECONDS);
         return call("TakeBackLease", stub.takeBack(req));
+    }
+
+    /**
+     * Says a player this holder owns has joined it. Fails with
+     * UNIMPLEMENTED on servers from before join confirmations.
+     *
+     * @param player   the player's UUID bytes
+     * @param holderId this connector instance's identity
+     * @param epoch    the epoch the player joined under
+     * @return false if this holder does not own the player with this epoch
+     */
+    public CompletableFuture<Boolean> joined(ByteString player, String holderId, long epoch) {
+        var stub = leases.withDeadlineAfter(timeoutMillis(), TimeUnit.MILLISECONDS);
+        return call("Joined", stub.joined(com.leonsdb.proto.v1.JoinedRequest.newBuilder()
+                .setPlayer(player).setHolderId(holderId).setEpoch(epoch).build()))
+                .thenApply(com.leonsdb.proto.v1.JoinedResponse::getConfirmed);
+    }
+
+    /**
+     * Who owns a player now, and whether the player has joined that server.
+     * Fails with UNIMPLEMENTED on servers from before join confirmations.
+     *
+     * @param player the player's UUID bytes
+     * @return the owner, if any
+     */
+    public CompletableFuture<com.leonsdb.proto.v1.GetOwnerResponse> getOwner(ByteString player) {
+        var stub = leases.withDeadlineAfter(timeoutMillis(), TimeUnit.MILLISECONDS);
+        return call("GetOwner", stub.getOwner(com.leonsdb.proto.v1.GetOwnerRequest.newBuilder().setPlayer(player).build()));
     }
 
     /**

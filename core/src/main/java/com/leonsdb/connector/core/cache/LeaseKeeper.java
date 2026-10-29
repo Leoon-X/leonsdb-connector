@@ -111,7 +111,7 @@ final class LeaseKeeper {
      */
     com.leonsdb.proto.v1.AcquireLeaseResponse acquire(UUID uuid, Duration wait, java.util.List<String> load) {
         try {
-            var resp = client.acquireLease(bytes(uuid), holderId, holderName, wait.toMillis(), load)
+            var resp = client.acquireLease(bytes(uuid), holderId, holderName, wait.toMillis(), load, true)
                     .get(wait.toMillis() + 10_000, TimeUnit.MILLISECONDS);
             if (resp.getTtlMs() > 0 && resp.getTtlMs() != ttlMillis) {
                 ttlMillis = resp.getTtlMs();
@@ -140,10 +140,44 @@ final class LeaseKeeper {
      */
     java.util.concurrent.CompletableFuture<com.leonsdb.proto.v1.AcquireLeaseResponse> takeBack(
             UUID uuid, Duration wait, java.util.List<String> load) {
-        return client.takeBackLease(bytes(uuid), holderId, holderName, wait.toMillis(), load).thenApply(resp -> {
+        return client.takeBackLease(bytes(uuid), holderId, holderName, wait.toMillis(), load, true).thenApply(resp -> {
             held.put(uuid, resp.getEpoch());
             return resp;
         });
+    }
+
+    /**
+     * Tells LeonsDB that a player this server owns has joined it. Failures
+     * are only logged: the server they came from then keeps them a little
+     * longer before deciding they logged in somewhere else.
+     *
+     * @param uuid the player
+     */
+    void joined(UUID uuid) {
+        Long epoch = held.get(uuid);
+        if (epoch == null) {
+            return;
+        }
+        client.joined(bytes(uuid), holderId, epoch).whenComplete((ok, err) -> {
+            if (err != null) {
+                log.log(Level.FINE, "Could not confirm that " + uuid + " joined", err);
+            }
+        });
+    }
+
+    /**
+     * Who owns a player now, and whether they joined that server.
+     *
+     * @param uuid the player
+     * @return the owner; fails if LeonsDB did not answer
+     */
+    java.util.concurrent.CompletableFuture<com.leonsdb.proto.v1.GetOwnerResponse> owner(UUID uuid) {
+        return client.getOwner(bytes(uuid));
+    }
+
+    /** @return this connector instance's holder id */
+    String holderId() {
+        return holderId;
     }
 
     /**

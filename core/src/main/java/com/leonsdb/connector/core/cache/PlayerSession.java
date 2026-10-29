@@ -41,6 +41,9 @@ final class PlayerSession {
     /** Set when the player is handed over to another server rather than leaving. */
     volatile boolean handover;
 
+    /** With -Dleonsdb.debug.handovers: when each step of the handover happened (nanoTime), and the wall clock. */
+    volatile long[] timing;
+
     /** True while handover listeners run: they may still change the data. */
     volatile boolean handingOver;
 

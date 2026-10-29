@@ -110,8 +110,21 @@ final class LeaseKeeper {
      * @throws LeonsDBException if ownership could not be obtained in time
      */
     com.leonsdb.proto.v1.AcquireLeaseResponse acquire(UUID uuid, Duration wait, java.util.List<String> load) {
+        return acquire(uuid, wait, load, null);
+    }
+
+    /**
+     * Like {@link #acquire(UUID, Duration, java.util.List)}, also telling LeonsDB the player's name.
+     *
+     * @param uuid the player
+     * @param wait how long to wait for another server to hand the player over
+     * @param load collections to read, as "namespace.collection"
+     * @param name the player's name, or null
+     * @return the answer, with the epoch to write with
+     */
+    com.leonsdb.proto.v1.AcquireLeaseResponse acquire(UUID uuid, Duration wait, java.util.List<String> load, String name) {
         try {
-            var resp = client.acquireLease(bytes(uuid), holderId, holderName, wait.toMillis(), load)
+            var resp = client.acquireLease(bytes(uuid), holderId, holderName, wait.toMillis(), load, name)
                     .get(wait.toMillis() + 10_000, TimeUnit.MILLISECONDS);
             if (resp.getTtlMs() > 0 && resp.getTtlMs() != ttlMillis) {
                 ttlMillis = resp.getTtlMs();
@@ -136,11 +149,12 @@ final class LeaseKeeper {
      * @param uuid the player
      * @param wait how long to wait for the player to be free
      * @param load collections to read, as "namespace.collection"
+     * @param name the player's name, or null
      * @return completes with the answer, or fails if the player is not free
      */
     java.util.concurrent.CompletableFuture<com.leonsdb.proto.v1.AcquireLeaseResponse> takeBack(
-            UUID uuid, Duration wait, java.util.List<String> load) {
-        return client.takeBackLease(bytes(uuid), holderId, holderName, wait.toMillis(), load).thenApply(resp -> {
+            UUID uuid, Duration wait, java.util.List<String> load, String name) {
+        return client.takeBackLease(bytes(uuid), holderId, holderName, wait.toMillis(), load, name).thenApply(resp -> {
             held.put(uuid, resp.getEpoch());
             return resp;
         });

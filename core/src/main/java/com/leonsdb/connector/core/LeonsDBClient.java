@@ -345,9 +345,24 @@ public final class LeonsDBClient implements AutoCloseable {
      */
     public CompletableFuture<AcquireLeaseResponse> acquireLease(ByteString player, String holderId, String holderName, long waitMillis,
                                                               java.util.List<String> load) {
-        var req = AcquireLeaseRequest.newBuilder()
-                .setPlayer(player).setHolderId(holderId).setHolderName(holderName)
-                .setWaitMs((int) Math.min(waitMillis, 30_000)).addAllLoad(load).build();
+        return acquireLease(player, holderId, holderName, waitMillis, load, null);
+    }
+
+    /**
+     * Like {@link #acquireLease(ByteString, String, String, long, java.util.List)}, and tells LeonsDB
+     * the player's name for its player directory.
+     *
+     * @param player     the player's UUID bytes
+     * @param holderId   this connector instance's identity
+     * @param holderName this server's name
+     * @param waitMillis how long to wait for a handover
+     * @param load       collections as "namespace.collection"
+     * @param playerName the player's name, or null
+     * @return the epoch and the records that exist
+     */
+    public CompletableFuture<AcquireLeaseResponse> acquireLease(ByteString player, String holderId, String holderName, long waitMillis,
+                                                              java.util.List<String> load, String playerName) {
+        var req = request(player, holderId, holderName, waitMillis, load, playerName);
         // The call itself may take as long as the wait, plus the usual timeout.
         var stub = leases.withDeadlineAfter(timeoutMillis() + waitMillis, TimeUnit.MILLISECONDS);
         return call("AcquireLease", stub.acquire(req));
@@ -365,15 +380,25 @@ public final class LeonsDBClient implements AutoCloseable {
      * @param holderName this server's name
      * @param waitMillis how long to wait for the player to be free
      * @param load       collections as "namespace.collection"
+     * @param playerName the player's name, or null
      * @return the epoch and the records that exist
      */
     public CompletableFuture<AcquireLeaseResponse> takeBackLease(ByteString player, String holderId, String holderName,
-                                                               long waitMillis, java.util.List<String> load) {
-        var req = AcquireLeaseRequest.newBuilder()
-                .setPlayer(player).setHolderId(holderId).setHolderName(holderName)
-                .setWaitMs((int) Math.min(waitMillis, 30_000)).addAllLoad(load).build();
+                                                               long waitMillis, java.util.List<String> load, String playerName) {
+        var req = request(player, holderId, holderName, waitMillis, load, playerName);
         var stub = leases.withDeadlineAfter(timeoutMillis() + waitMillis, TimeUnit.MILLISECONDS);
         return call("TakeBackLease", stub.takeBack(req));
+    }
+
+    private static AcquireLeaseRequest request(ByteString player, String holderId, String holderName, long waitMillis,
+                                               java.util.List<String> load, String playerName) {
+        var b = AcquireLeaseRequest.newBuilder()
+                .setPlayer(player).setHolderId(holderId).setHolderName(holderName)
+                .setWaitMs((int) Math.min(waitMillis, 30_000)).addAllLoad(load);
+        if (playerName != null) {
+            b.setPlayerName(playerName);
+        }
+        return b.build();
     }
 
     /**

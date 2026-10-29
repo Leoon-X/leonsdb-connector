@@ -38,6 +38,9 @@ final class PlayerSession {
     /** Set when the player left while their handover was still being saved. */
     volatile boolean left;
 
+    /** The player's name, if the platform told it; for LeonsDB's player directory. */
+    volatile String name;
+
     /** Set when the player is handed over to another server rather than leaving. */
     volatile boolean handover;
 

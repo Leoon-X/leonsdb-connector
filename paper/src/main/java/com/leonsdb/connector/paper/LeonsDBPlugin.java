@@ -127,7 +127,7 @@ public final class LeonsDBPlugin extends JavaPlugin implements Listener {
             return; // another plugin already refused this login
         }
         try {
-            service.loadPlayer(event.getUniqueId());
+            service.loadPlayer(event.getUniqueId(), event.getName());
         } catch (LeonsDBException e) {
             getLogger().warning("Refused login of " + event.getName() + ": " + rootMessage(e));
             event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, Component.text(

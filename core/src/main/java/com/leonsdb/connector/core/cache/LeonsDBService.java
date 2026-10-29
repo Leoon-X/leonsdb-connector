@@ -246,6 +246,18 @@ public final class LeonsDBService implements LeonsDBProvider {
      *                          overwrite the real data later
      */
     public void loadPlayer(UUID uuid) {
+        loadPlayer(uuid, null);
+    }
+
+    /**
+     * Like {@link #loadPlayer(UUID)}, also telling LeonsDB the player's name
+     * for its player directory (finding players by name).
+     *
+     * @param uuid the player
+     * @param name the player's name, or null
+     * @throws LeonsDBException as {@link #loadPlayer(UUID)}
+     */
+    public void loadPlayer(UUID uuid, String name) {
         CompletableFuture<Void> released;
         synchronized (loading) {
             loading.add(uuid);
@@ -261,13 +273,13 @@ public final class LeonsDBService implements LeonsDBProvider {
                     // it expires on its own; acquiring waits for that
                 }
             }
-            load(uuid);
+            load(uuid, name);
         } finally {
             loading.remove(uuid);
         }
     }
 
-    private void load(UUID uuid) {
+    private void load(UUID uuid, String name) {
         long deadline = System.nanoTime() + settings.loadTimeout().toNanos() + settings.leaseWait().toNanos();
 
         // If the player's previous session here is still being saved (a quick
@@ -284,9 +296,10 @@ public final class LeonsDBService implements LeonsDBProvider {
         }
 
         // Ownership and the player's records in one round trip.
-        var acquired = leases.acquire(uuid, settings.leaseWait(), playerCollections());
+        var acquired = leases.acquire(uuid, settings.leaseWait(), playerCollections(), name);
 
         PlayerSession session = new PlayerSession(uuid, acquired.getEpoch());
+        session.name = name;
         List<CompletableFuture<Void>> loads = new ArrayList<>();
         Map<String, com.leonsdb.proto.v1.Record> loaded = new HashMap<>();
         acquired.getRecordsList().forEach(r -> loaded.put(r.getRef().getNamespace() + "." + r.getRef().getCollection(), r));
@@ -646,7 +659,7 @@ public final class LeonsDBService implements LeonsDBProvider {
             }
             return;
         }
-        leases.takeBack(uuid, TAKE_BACK_WAIT, playerCollections()).whenComplete((resp, err) -> {
+        leases.takeBack(uuid, TAKE_BACK_WAIT, playerCollections(), old.name).whenComplete((resp, err) -> {
             if (err == null) {
                 onPlayerThread(uuid, () -> resume(old, resp));
                 return;
@@ -695,6 +708,7 @@ public final class LeonsDBService implements LeonsDBProvider {
             }
         }
         PlayerSession session = new PlayerSession(uuid, taken.getEpoch());
+        session.name = old.name;
         Map<String, com.leonsdb.proto.v1.Record> loaded = new HashMap<>();
         taken.getRecordsList().forEach(r -> loaded.put(r.getRef().getNamespace() + "." + r.getRef().getCollection(), r));
         for (ClassSchema<?> schema : schemas.values()) {

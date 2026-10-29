@@ -108,6 +108,15 @@ class PlayerCacheTest {
     }
 
     @Test
+    void theJoiningPlayersNameGoesToLeonsDB() {
+        service.loadPlayer(steve, "Steve");
+        assertEquals("Steve", server.lastPlayerName);
+        service.unloadPlayer(steve).join();
+        service.loadPlayer(steve);
+        assertEquals("", server.lastPlayerName, "no name: none is sent");
+    }
+
+    @Test
     void manyChangesAreMergedIntoOneWrite() throws Exception {
         service.loadPlayer(steve);
         for (int i = 0; i < 40; i++) {

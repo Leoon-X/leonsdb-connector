@@ -175,11 +175,6 @@ final class LeaseKeeper {
         return client.getOwner(bytes(uuid));
     }
 
-    /** @return this connector instance's holder id */
-    String holderId() {
-        return holderId;
-    }
-
     /**
      * Gives up ownership once the player's data is saved. Failures are only
      * logged: an unreleased lease simply expires.

@@ -86,9 +86,10 @@ class RealServerTest {
             wirePort = s.getLocalPort();
         }
         Path config = dataDir.resolve("leonsdb.yml");
-        // A short lease TTL keeps the crash test fast.
+        // A short lease TTL keeps the crash test fast. No HTTP listener: its
+        // default port may be taken on the test machine.
         Files.writeString(config, "listen: 127.0.0.1:" + port + "\nwire_listen: 127.0.0.1:" + wirePort
-                + "\ndata_dir: data\nlease_ttl_ms: 2000\n");
+                + "\ndata_dir: data\nlease_ttl_ms: 2000\nhttp:\n  listen: \"\"\n");
         server = new ProcessBuilder(binary, "-config", config.toString())
                 .redirectErrorStream(true)
                 .redirectOutput(dataDir.resolve("server.log").toFile())

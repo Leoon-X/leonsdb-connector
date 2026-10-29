@@ -811,8 +811,11 @@ public final class LeonsDBService implements LeonsDBProvider {
                 old.lateChanges.completeExceptionally(cause);
                 return;
             }
+            // Refused for good, unlike while the player is owned or loaded
+            // elsewhere for a moment (a take-back here that came too late is
+            // letting go, the player is switching on): those are retried.
             boolean refused = cause instanceof RequestException re && !re.isTemporary()
-                    && !"OWNER_UNAVAILABLE".equals(reason) && !"BUSY".equals(reason);
+                    && !java.util.Set.of("OWNER_UNAVAILABLE", "BUSY", "PLAYER_NOT_LOADED", "PLAYER_ONLINE").contains(reason);
             if (refused) {
                 log.severe("LeonsDB refused the changes made to " + old.uuid + " just before they switched servers: "
                         + cause.getMessage() + ". Changes: " + changes.stream().map(LateChange::ops).toList());

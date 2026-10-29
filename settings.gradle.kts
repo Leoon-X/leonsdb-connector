@@ -3,7 +3,7 @@
 
 rootProject.name = "leonsdb-connector"
 
-include("protocol", "api", "core", "paper", "velocity", "example")
+include("protocol", "api", "core", "paper", "velocity", "example", "importer")
 
 project(":protocol").name = "leonsdb-protocol"
 project(":api").name = "leonsdb-api"
@@ -11,6 +11,7 @@ project(":core").name = "leonsdb-core"
 project(":paper").name = "leonsdb-paper"
 project(":velocity").name = "leonsdb-velocity"
 project(":example").name = "leonsdb-example"
+project(":importer").name = "leonsdb-importer"
 
 dependencyResolutionManagement {
     repositories {

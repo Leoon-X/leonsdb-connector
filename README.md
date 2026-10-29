@@ -27,6 +27,7 @@ and is distributed as compiled builds from [leonsdb.com](https://leonsdb.com).
 | `velocity/` | The Velocity plugin (switch hints) |
 | `protocol/` | Java classes generated from `proto/` |
 | `example/` | An example plugin |
+| `importer/` | `leonsdb-import.jar`: imports existing data from MySQL, MongoDB, SQLite, H2 and YAML ([docs/importing.md](docs/importing.md)) |
 | `proto/` | Protocol definitions, generated Go code, Go wire client (`proto/wireclient`) |
 
 ## Building

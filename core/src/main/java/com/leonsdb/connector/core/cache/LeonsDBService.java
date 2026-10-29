@@ -124,6 +124,7 @@ public final class LeonsDBService implements LeonsDBProvider {
     /** Ownerships being released after a take-back that came too late (see resume). */
     private final Map<UUID, CompletableFuture<Void>> releasing = new ConcurrentHashMap<>();
     private volatile boolean takeBackUnsupported;
+    private volatile long lastAcquire; // debug only
     private final List<HandoverListener> handoverListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
     private final Set<Class<?>> warnedTransactional = ConcurrentHashMap.newKeySet();
     private final ScheduledExecutorService background;
@@ -253,6 +254,7 @@ public final class LeonsDBService implements LeonsDBProvider {
      *                          overwrite the real data later
      */
     public void loadPlayer(UUID uuid) {
+        long t0 = System.nanoTime(), at = System.currentTimeMillis();
         CompletableFuture<Void> released;
         synchronized (loading) {
             loading.add(uuid);
@@ -268,7 +270,12 @@ public final class LeonsDBService implements LeonsDBProvider {
                     // it expires on its own; acquiring waits for that
                 }
             }
+            long t1 = System.nanoTime();
             load(uuid);
+            if (DEBUG_HANDOVERS) {
+                log.info(String.format(java.util.Locale.ROOT, "LOAD %s at %d: waited %.1f ms, loaded %.1f ms (acquire %.1f ms)",
+                        uuid, at, (t1 - t0) / 1e6, (System.nanoTime() - t1) / 1e6, lastAcquire / 1e6));
+            }
         } finally {
             loading.remove(uuid);
         }
@@ -291,7 +298,9 @@ public final class LeonsDBService implements LeonsDBProvider {
         }
 
         // Ownership and the player's records in one round trip.
+        long a0 = System.nanoTime();
         var acquired = leases.acquire(uuid, settings.leaseWait(), playerCollections());
+        lastAcquire = System.nanoTime() - a0;
 
         PlayerSession session = new PlayerSession(uuid, acquired.getEpoch());
         List<CompletableFuture<Void>> loads = new ArrayList<>();
@@ -775,6 +784,9 @@ public final class LeonsDBService implements LeonsDBProvider {
                 r.whenComplete((ok, err) -> releasing.remove(uuid, r));
                 return;
             }
+        }
+        if (DEBUG_HANDOVERS) {
+            log.info("TAKEBACK " + uuid + " at " + System.currentTimeMillis());
         }
         PlayerSession session = new PlayerSession(uuid, taken.getEpoch());
         Map<String, com.leonsdb.proto.v1.Record> loaded = new HashMap<>();

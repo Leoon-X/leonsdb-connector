@@ -98,6 +98,8 @@ public final class FakeServer implements AutoCloseable {
     public volatile boolean nextOwnerConfirmsJoin = true;
     /** Behave like a server from before join confirmations: no Joined, no GetOwner. */
     public volatile boolean noJoinConfirmations;
+    /** GetOwner calls so far. */
+    public final java.util.concurrent.atomic.AtomicInteger ownerLookups = new java.util.concurrent.atomic.AtomicInteger();
     /** Reads of single records (Get calls). */
     public final java.util.concurrent.atomic.AtomicInteger gets = new java.util.concurrent.atomic.AtomicInteger();
     private final Map<ByteString, TransactResponse> committedTransactions = new HashMap<>();
@@ -605,6 +607,7 @@ public final class FakeServer implements AutoCloseable {
 
         @Override
         public void getOwner(com.leonsdb.proto.v1.GetOwnerRequest req, StreamObserver<com.leonsdb.proto.v1.GetOwnerResponse> obs) {
+            ownerLookups.incrementAndGet();
             if (noJoinConfirmations) {
                 obs.onError(Status.UNIMPLEMENTED.asRuntimeException());
                 return;

@@ -98,6 +98,12 @@ public final class LeonsDBService implements LeonsDBProvider {
     }
 
     private static final Duration REGISTER_TIMEOUT = Duration.ofSeconds(15);
+    /**
+     * Warms up the code a player's first load runs (see warmUp), so the
+     * first player after a start does not wait for it. -Dleonsdb.warmUp=false
+     * turns it off, for tests that measure it.
+     */
+    private static final boolean WARM_UP = Boolean.parseBoolean(System.getProperty("leonsdb.warmUp", "true"));
     private static final Duration UNLOAD_RETRY = Duration.ofSeconds(2);
     private static final Duration TAKE_BACK_WAIT = Duration.ofSeconds(5);
     private static final Duration TAKE_BACK_RETRY = Duration.ofSeconds(1);
@@ -161,6 +167,39 @@ public final class LeonsDBService implements LeonsDBProvider {
     public void start() {
         leases.start(this::onHandoverRequested, this::onLost, participant::onEvent, this::onDatabaseReplaced,
                 this::onSwitchExpected);
+        if (WARM_UP) {
+            background.execute(this::warmUpCalls);
+        }
+    }
+
+    /**
+     * One read-only ownership call (for a player nobody has), so the call
+     * path and its answer's classes are ready before the first player
+     * arrives. Its answer does not matter, and failing changes nothing.
+     */
+    private void warmUpCalls() {
+        com.leonsdb.proto.v1.AcquireLeaseResponse.getDefaultInstance();
+        leases.owner(new UUID(0, 0)).whenComplete((owner, e) -> {
+            if (e != null) {
+                log.fine("Warm-up call failed (harmless): " + e.getMessage());
+            }
+        });
+    }
+
+    /**
+     * Makes and reads back one object of a registered class with its
+     * defaults, as a load does, so the first player's load does not pay
+     * for loading and compiling that code. Nothing is sent or stored.
+     */
+    private <T> void warmUp(ClassSchema<T> schema) {
+        try {
+            T instance = schema.newInstance();
+            Map<String, Value> fields = schema.read(instance);
+            schema.write(schema.newInstance(), fields);
+            schema.declaredOnly(fields);
+        } catch (RuntimeException e) {
+            log.fine("Warm-up of " + schema.type().getSimpleName() + " failed (harmless): " + e);
+        }
     }
 
     // --- LeonsDBProvider -------------------------------------------------------
@@ -188,6 +227,9 @@ public final class LeonsDBService implements LeonsDBProvider {
             ClassSchema<?> previous = schemas.put(type, schema);
             if (previous == null && schema.isPlayerData() && !sessions.isEmpty()) {
                 loadForOnlinePlayers(schema);
+            }
+            if (WARM_UP && previous == null) {
+                background.execute(() -> warmUp(schema));
             }
         }
     }

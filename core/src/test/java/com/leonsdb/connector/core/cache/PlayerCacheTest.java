@@ -100,6 +100,17 @@ class PlayerCacheTest {
     }
 
     @Test
+    void theWarmUpAtStartOnlyReads() throws Exception {
+        await(() -> server.ownerLookups.get() == 1, "one warm-up call");
+        Thread.sleep(50);
+        assertEquals(1, server.ownerLookups.get());
+        assertTrue(server.applies.isEmpty() && server.transacts.isEmpty(), "the warm-up writes nothing");
+        assertEquals(0, server.gets.get(), "and reads no record");
+        service.loadPlayer(steve);
+        assertEquals(1, stats().level, "a load after it is as before");
+    }
+
+    @Test
     void newPlayerStartsWithDefaults() {
         service.loadPlayer(steve);
         assertEquals(0, stats().kills);

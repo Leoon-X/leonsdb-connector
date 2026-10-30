@@ -8,11 +8,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.leonsdb.connector.api.Duration;
 import com.leonsdb.connector.api.GlobalData;
 import com.leonsdb.connector.api.Indexed;
 import com.leonsdb.connector.api.PlayerData;
 import com.leonsdb.connector.api.Transactional;
 import com.leonsdb.proto.v1.CollectionKind;
+import com.leonsdb.proto.v1.DurationUnit;
 import com.leonsdb.proto.v1.FieldType;
 import com.leonsdb.proto.v1.Operation;
 import com.leonsdb.proto.v1.Value;
@@ -32,7 +34,7 @@ class SchemaTest {
     @PlayerData(namespace = "pvp", collection = "stats")
     static class Stats {
         @Indexed public int kills;
-        public long playtime;
+        @Duration(Duration.Unit.TICKS) public long playtime;
         @Transactional public double coins;
         public boolean muted;
         public String nickname;
@@ -63,6 +65,9 @@ class SchemaTest {
         assertTrue(s.hasTransactional());
         var scores = proto.getFieldsList().stream().filter(f -> f.getName().equals("scores")).findFirst().orElseThrow();
         assertEquals(FieldType.FIELD_TYPE_MAP, scores.getType());
+        var playtime = proto.getFieldsList().stream().filter(f -> f.getName().equals("playtime")).findFirst().orElseThrow();
+        assertEquals(DurationUnit.DURATION_UNIT_TICKS, playtime.getDuration(), "@Duration is declared to LeonsDB");
+        assertEquals(DurationUnit.DURATION_UNIT_UNSPECIFIED, kills.getDuration());
     }
 
     @Test
@@ -132,6 +137,11 @@ class SchemaTest {
     }
 
     @PlayerData(namespace = "x", collection = "y")
+    static class DurationString {
+        @Duration(Duration.Unit.SECONDS) public String muteLeft;
+    }
+
+    @PlayerData(namespace = "pvp", collection = "x")
     static class IndexedString {
         @Indexed public String name;
     }
@@ -172,6 +182,7 @@ class SchemaTest {
                 HasFinal.class, "final",
                 RawList.class, "element type",
                 IndexedString.class, "@Indexed",
+                DurationString.class, "@Duration",
                 BadNamespace.class, "namespace",
                 NoAnnotation.class, "exactly one",
                 BothAnnotations.class, "exactly one",

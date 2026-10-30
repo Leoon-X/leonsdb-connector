@@ -403,6 +403,26 @@ LeonsDB.leaderboard(Stats.class, "bestTime", Leaderboard.Order.LOWEST_FIRST);
 - Each indexed field uses about 80 bytes of server memory per ranked record
   (8 MB per 100,000 players).
 
+## Durations
+
+Mark an `int` or `long` field with its unit and tools that show your data,
+such as the LeonsDB dashboard, show it as a duration ("7h 0m") instead of a
+bare number:
+
+```java
+@Duration(Duration.Unit.TICKS)   public long playtime;   // Minecraft ticks, 50 ms each
+@Duration(Duration.Unit.SECONDS) public int muteLeft;
+@Duration(Duration.Unit.MILLIS)  public long fastestRun;
+```
+
+- Nothing changes in how the value is stored or saved.
+- Without it, the dashboard shows a number as a duration only when the
+  field's name says the unit (`playtimeMs`, `cooldownSeconds`, `onlineTicks`).
+  A name like `playtime` alone stays a number: it could be ticks as well as
+  milliseconds.
+- In a class that also uses `java.time.Duration`, write
+  `@com.leonsdb.connector.api.Duration`.
+
 ## Rules of thumb
 
 - Call `get`, `update` and `save` on the main thread (on Folia: the thread

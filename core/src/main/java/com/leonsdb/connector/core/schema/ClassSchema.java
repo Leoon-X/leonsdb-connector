@@ -9,6 +9,7 @@ import com.leonsdb.connector.api.Names;
 import com.leonsdb.connector.api.PlayerData;
 import com.leonsdb.connector.api.Transactional;
 import com.leonsdb.proto.v1.CollectionKind;
+import com.leonsdb.proto.v1.DurationUnit;
 import com.leonsdb.proto.v1.FieldSchema;
 import com.leonsdb.proto.v1.FieldType;
 import com.leonsdb.proto.v1.Schema;
@@ -44,7 +45,7 @@ public final class ClassSchema<T> {
 
     /** One stored field. */
     public record FieldBinding(String name, Field field, TypeCodec<Object> codec,
-                               boolean indexed, boolean transactional) {
+                               boolean indexed, boolean transactional, DurationUnit duration) {
 
         /**
          * The LeonsDB type of this field.
@@ -142,10 +143,22 @@ public final class ClassSchema<T> {
                 if (indexed && !sortable(codec.fieldType())) {
                     throw new IllegalArgumentException(fieldWhere + ": @Indexed works on int, long, double and Instant fields only");
                 }
+                DurationUnit duration = DurationUnit.DURATION_UNIT_UNSPECIFIED;
+                com.leonsdb.connector.api.Duration d = f.getAnnotation(com.leonsdb.connector.api.Duration.class);
+                if (d != null) {
+                    if (codec.fieldType() != FieldType.FIELD_TYPE_INT && codec.fieldType() != FieldType.FIELD_TYPE_LONG) {
+                        throw new IllegalArgumentException(fieldWhere + ": @Duration works on int and long fields only");
+                    }
+                    duration = switch (d.value()) {
+                        case MILLIS -> DurationUnit.DURATION_UNIT_MILLIS;
+                        case SECONDS -> DurationUnit.DURATION_UNIT_SECONDS;
+                        case TICKS -> DurationUnit.DURATION_UNIT_TICKS;
+                    };
+                }
                 f.setAccessible(true);
                 @SuppressWarnings("unchecked")
                 TypeCodec<Object> objCodec = (TypeCodec<Object>) codec;
-                bindings.add(new FieldBinding(f.getName(), f, objCodec, indexed, f.isAnnotationPresent(Transactional.class)));
+                bindings.add(new FieldBinding(f.getName(), f, objCodec, indexed, f.isAnnotationPresent(Transactional.class), duration));
             }
         }
         if (bindings.isEmpty()) {
@@ -208,7 +221,7 @@ public final class ClassSchema<T> {
         for (FieldBinding f : fields) {
             b.addFields(FieldSchema.newBuilder()
                     .setName(f.name()).setType(f.type())
-                    .setIndexed(f.indexed()).setTransactional(f.transactional()));
+                    .setIndexed(f.indexed()).setTransactional(f.transactional()).setDuration(f.duration()));
         }
         return b.build();
     }

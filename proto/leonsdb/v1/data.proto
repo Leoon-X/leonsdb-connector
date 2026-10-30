@@ -215,6 +215,18 @@ message FieldSchema {
   bool indexed = 3;
   // Changes must never be buffered by clients.
   bool transactional = 4;
+  // A whole-number field that is a duration, and its unit. Tools such as
+  // the dashboard show it as one ("7h 0m"). Only for int and long fields.
+  DurationUnit duration = 5;
+}
+
+// DurationUnit is what one unit of a duration field is.
+enum DurationUnit {
+  DURATION_UNIT_UNSPECIFIED = 0; // not a duration
+  DURATION_UNIT_MILLIS = 1;
+  DURATION_UNIT_SECONDS = 2;
+  // Minecraft server ticks, 50 ms each.
+  DURATION_UNIT_TICKS = 3;
 }
 
 // Schema lists the fields of a collection. Declaring a schema is optional.

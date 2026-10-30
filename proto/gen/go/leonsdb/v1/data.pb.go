@@ -158,6 +158,60 @@ func (FieldType) EnumDescriptor() ([]byte, []int) {
 	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{1}
 }
 
+// DurationUnit is what one unit of a duration field is.
+type DurationUnit int32
+
+const (
+	DurationUnit_DURATION_UNIT_UNSPECIFIED DurationUnit = 0 // not a duration
+	DurationUnit_DURATION_UNIT_MILLIS      DurationUnit = 1
+	DurationUnit_DURATION_UNIT_SECONDS     DurationUnit = 2
+	// Minecraft server ticks, 50 ms each.
+	DurationUnit_DURATION_UNIT_TICKS DurationUnit = 3
+)
+
+// Enum value maps for DurationUnit.
+var (
+	DurationUnit_name = map[int32]string{
+		0: "DURATION_UNIT_UNSPECIFIED",
+		1: "DURATION_UNIT_MILLIS",
+		2: "DURATION_UNIT_SECONDS",
+		3: "DURATION_UNIT_TICKS",
+	}
+	DurationUnit_value = map[string]int32{
+		"DURATION_UNIT_UNSPECIFIED": 0,
+		"DURATION_UNIT_MILLIS":      1,
+		"DURATION_UNIT_SECONDS":     2,
+		"DURATION_UNIT_TICKS":       3,
+	}
+)
+
+func (x DurationUnit) Enum() *DurationUnit {
+	p := new(DurationUnit)
+	*p = x
+	return p
+}
+
+func (x DurationUnit) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (DurationUnit) Descriptor() protoreflect.EnumDescriptor {
+	return file_leonsdb_v1_data_proto_enumTypes[2].Descriptor()
+}
+
+func (DurationUnit) Type() protoreflect.EnumType {
+	return &file_leonsdb_v1_data_proto_enumTypes[2]
+}
+
+func (x DurationUnit) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use DurationUnit.Descriptor instead.
+func (DurationUnit) EnumDescriptor() ([]byte, []int) {
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{2}
+}
+
 // Comparison of a field with a value.
 type Comparison int32
 
@@ -214,11 +268,11 @@ func (x Comparison) String() string {
 }
 
 func (Comparison) Descriptor() protoreflect.EnumDescriptor {
-	return file_leonsdb_v1_data_proto_enumTypes[2].Descriptor()
+	return file_leonsdb_v1_data_proto_enumTypes[3].Descriptor()
 }
 
 func (Comparison) Type() protoreflect.EnumType {
-	return &file_leonsdb_v1_data_proto_enumTypes[2]
+	return &file_leonsdb_v1_data_proto_enumTypes[3]
 }
 
 func (x Comparison) Number() protoreflect.EnumNumber {
@@ -227,7 +281,7 @@ func (x Comparison) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Comparison.Descriptor instead.
 func (Comparison) EnumDescriptor() ([]byte, []int) {
-	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{2}
+	return file_leonsdb_v1_data_proto_rawDescGZIP(), []int{3}
 }
 
 // Value is one typed field value.
@@ -863,6 +917,9 @@ type FieldSchema struct {
 	Indexed bool `protobuf:"varint,3,opt,name=indexed,proto3" json:"indexed,omitempty"`
 	// Changes must never be buffered by clients.
 	Transactional bool `protobuf:"varint,4,opt,name=transactional,proto3" json:"transactional,omitempty"`
+	// A whole-number field that is a duration, and its unit. Tools such as
+	// the dashboard show it as one ("7h 0m"). Only for int and long fields.
+	Duration      DurationUnit `protobuf:"varint,5,opt,name=duration,proto3,enum=leonsdb.v1.DurationUnit" json:"duration,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -923,6 +980,13 @@ func (x *FieldSchema) GetTransactional() bool {
 		return x.Transactional
 	}
 	return false
+}
+
+func (x *FieldSchema) GetDuration() DurationUnit {
+	if x != nil {
+		return x.Duration
+	}
+	return DurationUnit_DURATION_UNIT_UNSPECIFIED
 }
 
 // Schema lists the fields of a collection. Declaring a schema is optional.
@@ -3710,12 +3774,13 @@ const file_leonsdb_v1_data_proto_rawDesc = "" +
 	"\x04kind\x18\x03 \x01(\x0e2\x1a.leonsdb.v1.CollectionKindR\x04kind\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x04 \x01(\x03R\tcreatedAt\x12*\n" +
-	"\x06schema\x18\x05 \x01(\v2\x12.leonsdb.v1.SchemaR\x06schema\"\x8c\x01\n" +
+	"\x06schema\x18\x05 \x01(\v2\x12.leonsdb.v1.SchemaR\x06schema\"\xc2\x01\n" +
 	"\vFieldSchema\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12)\n" +
 	"\x04type\x18\x02 \x01(\x0e2\x15.leonsdb.v1.FieldTypeR\x04type\x12\x18\n" +
 	"\aindexed\x18\x03 \x01(\bR\aindexed\x12$\n" +
-	"\rtransactional\x18\x04 \x01(\bR\rtransactional\"9\n" +
+	"\rtransactional\x18\x04 \x01(\bR\rtransactional\x124\n" +
+	"\bduration\x18\x05 \x01(\x0e2\x18.leonsdb.v1.DurationUnitR\bduration\"9\n" +
 	"\x06Schema\x12/\n" +
 	"\x06fields\x18\x01 \x03(\v2\x17.leonsdb.v1.FieldSchemaR\x06fields\"|\n" +
 	"\tRecordRef\x12\x1c\n" +
@@ -3946,7 +4011,12 @@ const file_leonsdb_v1_data_proto_rawDesc = "" +
 	"\x12\x17\n" +
 	"\x13FIELD_TYPE_LOCATION\x10\v\x12\x18\n" +
 	"\x14FIELD_TYPE_INVENTORY\x10\f\x12\x14\n" +
-	"\x10FIELD_TYPE_BYTES\x10\r*\xf3\x01\n" +
+	"\x10FIELD_TYPE_BYTES\x10\r*{\n" +
+	"\fDurationUnit\x12\x1d\n" +
+	"\x19DURATION_UNIT_UNSPECIFIED\x10\x00\x12\x18\n" +
+	"\x14DURATION_UNIT_MILLIS\x10\x01\x12\x19\n" +
+	"\x15DURATION_UNIT_SECONDS\x10\x02\x12\x17\n" +
+	"\x13DURATION_UNIT_TICKS\x10\x03*\xf3\x01\n" +
 	"\n" +
 	"Comparison\x12\x1a\n" +
 	"\x16COMPARISON_UNSPECIFIED\x10\x00\x12\x14\n" +
@@ -3990,171 +4060,173 @@ func file_leonsdb_v1_data_proto_rawDescGZIP() []byte {
 	return file_leonsdb_v1_data_proto_rawDescData
 }
 
-var file_leonsdb_v1_data_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_leonsdb_v1_data_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
 var file_leonsdb_v1_data_proto_msgTypes = make([]protoimpl.MessageInfo, 59)
 var file_leonsdb_v1_data_proto_goTypes = []any{
 	(CollectionKind)(0),              // 0: leonsdb.v1.CollectionKind
 	(FieldType)(0),                   // 1: leonsdb.v1.FieldType
-	(Comparison)(0),                  // 2: leonsdb.v1.Comparison
-	(*Value)(nil),                    // 3: leonsdb.v1.Value
-	(*ValueList)(nil),                // 4: leonsdb.v1.ValueList
-	(*ValueMap)(nil),                 // 5: leonsdb.v1.ValueMap
-	(*MinecraftItem)(nil),            // 6: leonsdb.v1.MinecraftItem
-	(*Location)(nil),                 // 7: leonsdb.v1.Location
-	(*Inventory)(nil),                // 8: leonsdb.v1.Inventory
-	(*Collection)(nil),               // 9: leonsdb.v1.Collection
-	(*FieldSchema)(nil),              // 10: leonsdb.v1.FieldSchema
-	(*Schema)(nil),                   // 11: leonsdb.v1.Schema
-	(*RecordRef)(nil),                // 12: leonsdb.v1.RecordRef
-	(*Record)(nil),                   // 13: leonsdb.v1.Record
-	(*Operation)(nil),                // 14: leonsdb.v1.Operation
-	(*Unset)(nil),                    // 15: leonsdb.v1.Unset
-	(*EnsureCollectionRequest)(nil),  // 16: leonsdb.v1.EnsureCollectionRequest
-	(*EnsureCollectionResponse)(nil), // 17: leonsdb.v1.EnsureCollectionResponse
-	(*ListCollectionsRequest)(nil),   // 18: leonsdb.v1.ListCollectionsRequest
-	(*ListCollectionsResponse)(nil),  // 19: leonsdb.v1.ListCollectionsResponse
-	(*GetRequest)(nil),               // 20: leonsdb.v1.GetRequest
-	(*GetResponse)(nil),              // 21: leonsdb.v1.GetResponse
-	(*ApplyRequest)(nil),             // 22: leonsdb.v1.ApplyRequest
-	(*ApplyResponse)(nil),            // 23: leonsdb.v1.ApplyResponse
-	(*ImportRequest)(nil),            // 24: leonsdb.v1.ImportRequest
-	(*ImportRecord)(nil),             // 25: leonsdb.v1.ImportRecord
-	(*ImportResponse)(nil),           // 26: leonsdb.v1.ImportResponse
-	(*BeginBulkImportRequest)(nil),   // 27: leonsdb.v1.BeginBulkImportRequest
-	(*BeginBulkImportResponse)(nil),  // 28: leonsdb.v1.BeginBulkImportResponse
-	(*BulkImportRequest)(nil),        // 29: leonsdb.v1.BulkImportRequest
-	(*BulkImportResponse)(nil),       // 30: leonsdb.v1.BulkImportResponse
-	(*CommitBulkImportRequest)(nil),  // 31: leonsdb.v1.CommitBulkImportRequest
-	(*CommitBulkImportResponse)(nil), // 32: leonsdb.v1.CommitBulkImportResponse
-	(*AbortBulkImportRequest)(nil),   // 33: leonsdb.v1.AbortBulkImportRequest
-	(*AbortBulkImportResponse)(nil),  // 34: leonsdb.v1.AbortBulkImportResponse
-	(*ApplyManyRequest)(nil),         // 35: leonsdb.v1.ApplyManyRequest
-	(*ApplyManyResponse)(nil),        // 36: leonsdb.v1.ApplyManyResponse
-	(*ApplyOutcome)(nil),             // 37: leonsdb.v1.ApplyOutcome
-	(*WriteError)(nil),               // 38: leonsdb.v1.WriteError
-	(*DeleteRequest)(nil),            // 39: leonsdb.v1.DeleteRequest
-	(*DeleteResponse)(nil),           // 40: leonsdb.v1.DeleteResponse
-	(*ScanRequest)(nil),              // 41: leonsdb.v1.ScanRequest
-	(*ScanResponse)(nil),             // 42: leonsdb.v1.ScanResponse
-	(*TopRequest)(nil),               // 43: leonsdb.v1.TopRequest
-	(*RankedEntry)(nil),              // 44: leonsdb.v1.RankedEntry
-	(*TopResponse)(nil),              // 45: leonsdb.v1.TopResponse
-	(*RankRequest)(nil),              // 46: leonsdb.v1.RankRequest
-	(*RankResponse)(nil),             // 47: leonsdb.v1.RankResponse
-	(*Condition)(nil),                // 48: leonsdb.v1.Condition
-	(*TransactionWrite)(nil),         // 49: leonsdb.v1.TransactionWrite
-	(*TransactRequest)(nil),          // 50: leonsdb.v1.TransactRequest
-	(*TransactionResult)(nil),        // 51: leonsdb.v1.TransactionResult
-	(*TransactResponse)(nil),         // 52: leonsdb.v1.TransactResponse
-	(*WatchChangesRequest)(nil),      // 53: leonsdb.v1.WatchChangesRequest
-	(*ChangeEvent)(nil),              // 54: leonsdb.v1.ChangeEvent
-	nil,                              // 55: leonsdb.v1.ValueMap.EntriesEntry
-	nil,                              // 56: leonsdb.v1.Inventory.SlotsEntry
-	nil,                              // 57: leonsdb.v1.Record.FieldsEntry
-	nil,                              // 58: leonsdb.v1.ApplyResponse.FieldsEntry
-	nil,                              // 59: leonsdb.v1.ImportRecord.FieldsEntry
-	nil,                              // 60: leonsdb.v1.TransactionResult.FieldsEntry
-	nil,                              // 61: leonsdb.v1.ChangeEvent.FieldsEntry
+	(DurationUnit)(0),                // 2: leonsdb.v1.DurationUnit
+	(Comparison)(0),                  // 3: leonsdb.v1.Comparison
+	(*Value)(nil),                    // 4: leonsdb.v1.Value
+	(*ValueList)(nil),                // 5: leonsdb.v1.ValueList
+	(*ValueMap)(nil),                 // 6: leonsdb.v1.ValueMap
+	(*MinecraftItem)(nil),            // 7: leonsdb.v1.MinecraftItem
+	(*Location)(nil),                 // 8: leonsdb.v1.Location
+	(*Inventory)(nil),                // 9: leonsdb.v1.Inventory
+	(*Collection)(nil),               // 10: leonsdb.v1.Collection
+	(*FieldSchema)(nil),              // 11: leonsdb.v1.FieldSchema
+	(*Schema)(nil),                   // 12: leonsdb.v1.Schema
+	(*RecordRef)(nil),                // 13: leonsdb.v1.RecordRef
+	(*Record)(nil),                   // 14: leonsdb.v1.Record
+	(*Operation)(nil),                // 15: leonsdb.v1.Operation
+	(*Unset)(nil),                    // 16: leonsdb.v1.Unset
+	(*EnsureCollectionRequest)(nil),  // 17: leonsdb.v1.EnsureCollectionRequest
+	(*EnsureCollectionResponse)(nil), // 18: leonsdb.v1.EnsureCollectionResponse
+	(*ListCollectionsRequest)(nil),   // 19: leonsdb.v1.ListCollectionsRequest
+	(*ListCollectionsResponse)(nil),  // 20: leonsdb.v1.ListCollectionsResponse
+	(*GetRequest)(nil),               // 21: leonsdb.v1.GetRequest
+	(*GetResponse)(nil),              // 22: leonsdb.v1.GetResponse
+	(*ApplyRequest)(nil),             // 23: leonsdb.v1.ApplyRequest
+	(*ApplyResponse)(nil),            // 24: leonsdb.v1.ApplyResponse
+	(*ImportRequest)(nil),            // 25: leonsdb.v1.ImportRequest
+	(*ImportRecord)(nil),             // 26: leonsdb.v1.ImportRecord
+	(*ImportResponse)(nil),           // 27: leonsdb.v1.ImportResponse
+	(*BeginBulkImportRequest)(nil),   // 28: leonsdb.v1.BeginBulkImportRequest
+	(*BeginBulkImportResponse)(nil),  // 29: leonsdb.v1.BeginBulkImportResponse
+	(*BulkImportRequest)(nil),        // 30: leonsdb.v1.BulkImportRequest
+	(*BulkImportResponse)(nil),       // 31: leonsdb.v1.BulkImportResponse
+	(*CommitBulkImportRequest)(nil),  // 32: leonsdb.v1.CommitBulkImportRequest
+	(*CommitBulkImportResponse)(nil), // 33: leonsdb.v1.CommitBulkImportResponse
+	(*AbortBulkImportRequest)(nil),   // 34: leonsdb.v1.AbortBulkImportRequest
+	(*AbortBulkImportResponse)(nil),  // 35: leonsdb.v1.AbortBulkImportResponse
+	(*ApplyManyRequest)(nil),         // 36: leonsdb.v1.ApplyManyRequest
+	(*ApplyManyResponse)(nil),        // 37: leonsdb.v1.ApplyManyResponse
+	(*ApplyOutcome)(nil),             // 38: leonsdb.v1.ApplyOutcome
+	(*WriteError)(nil),               // 39: leonsdb.v1.WriteError
+	(*DeleteRequest)(nil),            // 40: leonsdb.v1.DeleteRequest
+	(*DeleteResponse)(nil),           // 41: leonsdb.v1.DeleteResponse
+	(*ScanRequest)(nil),              // 42: leonsdb.v1.ScanRequest
+	(*ScanResponse)(nil),             // 43: leonsdb.v1.ScanResponse
+	(*TopRequest)(nil),               // 44: leonsdb.v1.TopRequest
+	(*RankedEntry)(nil),              // 45: leonsdb.v1.RankedEntry
+	(*TopResponse)(nil),              // 46: leonsdb.v1.TopResponse
+	(*RankRequest)(nil),              // 47: leonsdb.v1.RankRequest
+	(*RankResponse)(nil),             // 48: leonsdb.v1.RankResponse
+	(*Condition)(nil),                // 49: leonsdb.v1.Condition
+	(*TransactionWrite)(nil),         // 50: leonsdb.v1.TransactionWrite
+	(*TransactRequest)(nil),          // 51: leonsdb.v1.TransactRequest
+	(*TransactionResult)(nil),        // 52: leonsdb.v1.TransactionResult
+	(*TransactResponse)(nil),         // 53: leonsdb.v1.TransactResponse
+	(*WatchChangesRequest)(nil),      // 54: leonsdb.v1.WatchChangesRequest
+	(*ChangeEvent)(nil),              // 55: leonsdb.v1.ChangeEvent
+	nil,                              // 56: leonsdb.v1.ValueMap.EntriesEntry
+	nil,                              // 57: leonsdb.v1.Inventory.SlotsEntry
+	nil,                              // 58: leonsdb.v1.Record.FieldsEntry
+	nil,                              // 59: leonsdb.v1.ApplyResponse.FieldsEntry
+	nil,                              // 60: leonsdb.v1.ImportRecord.FieldsEntry
+	nil,                              // 61: leonsdb.v1.TransactionResult.FieldsEntry
+	nil,                              // 62: leonsdb.v1.ChangeEvent.FieldsEntry
 }
 var file_leonsdb_v1_data_proto_depIdxs = []int32{
-	4,  // 0: leonsdb.v1.Value.list_value:type_name -> leonsdb.v1.ValueList
-	5,  // 1: leonsdb.v1.Value.map_value:type_name -> leonsdb.v1.ValueMap
-	6,  // 2: leonsdb.v1.Value.item_value:type_name -> leonsdb.v1.MinecraftItem
-	7,  // 3: leonsdb.v1.Value.location_value:type_name -> leonsdb.v1.Location
-	8,  // 4: leonsdb.v1.Value.inventory_value:type_name -> leonsdb.v1.Inventory
-	3,  // 5: leonsdb.v1.ValueList.values:type_name -> leonsdb.v1.Value
-	55, // 6: leonsdb.v1.ValueMap.entries:type_name -> leonsdb.v1.ValueMap.EntriesEntry
-	56, // 7: leonsdb.v1.Inventory.slots:type_name -> leonsdb.v1.Inventory.SlotsEntry
+	5,  // 0: leonsdb.v1.Value.list_value:type_name -> leonsdb.v1.ValueList
+	6,  // 1: leonsdb.v1.Value.map_value:type_name -> leonsdb.v1.ValueMap
+	7,  // 2: leonsdb.v1.Value.item_value:type_name -> leonsdb.v1.MinecraftItem
+	8,  // 3: leonsdb.v1.Value.location_value:type_name -> leonsdb.v1.Location
+	9,  // 4: leonsdb.v1.Value.inventory_value:type_name -> leonsdb.v1.Inventory
+	4,  // 5: leonsdb.v1.ValueList.values:type_name -> leonsdb.v1.Value
+	56, // 6: leonsdb.v1.ValueMap.entries:type_name -> leonsdb.v1.ValueMap.EntriesEntry
+	57, // 7: leonsdb.v1.Inventory.slots:type_name -> leonsdb.v1.Inventory.SlotsEntry
 	0,  // 8: leonsdb.v1.Collection.kind:type_name -> leonsdb.v1.CollectionKind
-	11, // 9: leonsdb.v1.Collection.schema:type_name -> leonsdb.v1.Schema
+	12, // 9: leonsdb.v1.Collection.schema:type_name -> leonsdb.v1.Schema
 	1,  // 10: leonsdb.v1.FieldSchema.type:type_name -> leonsdb.v1.FieldType
-	10, // 11: leonsdb.v1.Schema.fields:type_name -> leonsdb.v1.FieldSchema
-	12, // 12: leonsdb.v1.Record.ref:type_name -> leonsdb.v1.RecordRef
-	57, // 13: leonsdb.v1.Record.fields:type_name -> leonsdb.v1.Record.FieldsEntry
-	3,  // 14: leonsdb.v1.Operation.set:type_name -> leonsdb.v1.Value
-	3,  // 15: leonsdb.v1.Operation.increment:type_name -> leonsdb.v1.Value
-	15, // 16: leonsdb.v1.Operation.unset:type_name -> leonsdb.v1.Unset
-	0,  // 17: leonsdb.v1.EnsureCollectionRequest.kind:type_name -> leonsdb.v1.CollectionKind
-	11, // 18: leonsdb.v1.EnsureCollectionRequest.schema:type_name -> leonsdb.v1.Schema
-	9,  // 19: leonsdb.v1.EnsureCollectionResponse.collection:type_name -> leonsdb.v1.Collection
-	9,  // 20: leonsdb.v1.ListCollectionsResponse.collections:type_name -> leonsdb.v1.Collection
-	12, // 21: leonsdb.v1.GetRequest.ref:type_name -> leonsdb.v1.RecordRef
-	13, // 22: leonsdb.v1.GetResponse.record:type_name -> leonsdb.v1.Record
-	12, // 23: leonsdb.v1.ApplyRequest.ref:type_name -> leonsdb.v1.RecordRef
-	14, // 24: leonsdb.v1.ApplyRequest.operations:type_name -> leonsdb.v1.Operation
-	58, // 25: leonsdb.v1.ApplyResponse.fields:type_name -> leonsdb.v1.ApplyResponse.FieldsEntry
-	25, // 26: leonsdb.v1.ImportRequest.records:type_name -> leonsdb.v1.ImportRecord
-	59, // 27: leonsdb.v1.ImportRecord.fields:type_name -> leonsdb.v1.ImportRecord.FieldsEntry
-	37, // 28: leonsdb.v1.ImportResponse.results:type_name -> leonsdb.v1.ApplyOutcome
-	25, // 29: leonsdb.v1.BulkImportRequest.records:type_name -> leonsdb.v1.ImportRecord
-	37, // 30: leonsdb.v1.BulkImportResponse.results:type_name -> leonsdb.v1.ApplyOutcome
-	22, // 31: leonsdb.v1.ApplyManyRequest.writes:type_name -> leonsdb.v1.ApplyRequest
-	37, // 32: leonsdb.v1.ApplyManyResponse.results:type_name -> leonsdb.v1.ApplyOutcome
-	23, // 33: leonsdb.v1.ApplyOutcome.response:type_name -> leonsdb.v1.ApplyResponse
-	38, // 34: leonsdb.v1.ApplyOutcome.error:type_name -> leonsdb.v1.WriteError
-	12, // 35: leonsdb.v1.DeleteRequest.ref:type_name -> leonsdb.v1.RecordRef
-	13, // 36: leonsdb.v1.ScanResponse.records:type_name -> leonsdb.v1.Record
-	12, // 37: leonsdb.v1.RankedEntry.ref:type_name -> leonsdb.v1.RecordRef
-	3,  // 38: leonsdb.v1.RankedEntry.value:type_name -> leonsdb.v1.Value
-	13, // 39: leonsdb.v1.RankedEntry.record:type_name -> leonsdb.v1.Record
-	44, // 40: leonsdb.v1.TopResponse.entries:type_name -> leonsdb.v1.RankedEntry
-	12, // 41: leonsdb.v1.RankRequest.ref:type_name -> leonsdb.v1.RecordRef
-	3,  // 42: leonsdb.v1.RankResponse.value:type_name -> leonsdb.v1.Value
-	2,  // 43: leonsdb.v1.Condition.comparison:type_name -> leonsdb.v1.Comparison
-	3,  // 44: leonsdb.v1.Condition.value:type_name -> leonsdb.v1.Value
-	12, // 45: leonsdb.v1.TransactionWrite.ref:type_name -> leonsdb.v1.RecordRef
-	14, // 46: leonsdb.v1.TransactionWrite.operations:type_name -> leonsdb.v1.Operation
-	48, // 47: leonsdb.v1.TransactionWrite.conditions:type_name -> leonsdb.v1.Condition
-	14, // 48: leonsdb.v1.TransactionWrite.owner_operations:type_name -> leonsdb.v1.Operation
-	49, // 49: leonsdb.v1.TransactRequest.writes:type_name -> leonsdb.v1.TransactionWrite
-	60, // 50: leonsdb.v1.TransactionResult.fields:type_name -> leonsdb.v1.TransactionResult.FieldsEntry
-	51, // 51: leonsdb.v1.TransactResponse.results:type_name -> leonsdb.v1.TransactionResult
-	12, // 52: leonsdb.v1.ChangeEvent.ref:type_name -> leonsdb.v1.RecordRef
-	61, // 53: leonsdb.v1.ChangeEvent.fields:type_name -> leonsdb.v1.ChangeEvent.FieldsEntry
-	3,  // 54: leonsdb.v1.ValueMap.EntriesEntry.value:type_name -> leonsdb.v1.Value
-	6,  // 55: leonsdb.v1.Inventory.SlotsEntry.value:type_name -> leonsdb.v1.MinecraftItem
-	3,  // 56: leonsdb.v1.Record.FieldsEntry.value:type_name -> leonsdb.v1.Value
-	3,  // 57: leonsdb.v1.ApplyResponse.FieldsEntry.value:type_name -> leonsdb.v1.Value
-	3,  // 58: leonsdb.v1.ImportRecord.FieldsEntry.value:type_name -> leonsdb.v1.Value
-	3,  // 59: leonsdb.v1.TransactionResult.FieldsEntry.value:type_name -> leonsdb.v1.Value
-	3,  // 60: leonsdb.v1.ChangeEvent.FieldsEntry.value:type_name -> leonsdb.v1.Value
-	16, // 61: leonsdb.v1.DataService.EnsureCollection:input_type -> leonsdb.v1.EnsureCollectionRequest
-	18, // 62: leonsdb.v1.DataService.ListCollections:input_type -> leonsdb.v1.ListCollectionsRequest
-	20, // 63: leonsdb.v1.DataService.Get:input_type -> leonsdb.v1.GetRequest
-	22, // 64: leonsdb.v1.DataService.Apply:input_type -> leonsdb.v1.ApplyRequest
-	35, // 65: leonsdb.v1.DataService.ApplyMany:input_type -> leonsdb.v1.ApplyManyRequest
-	24, // 66: leonsdb.v1.DataService.Import:input_type -> leonsdb.v1.ImportRequest
-	27, // 67: leonsdb.v1.DataService.BeginBulkImport:input_type -> leonsdb.v1.BeginBulkImportRequest
-	29, // 68: leonsdb.v1.DataService.BulkImport:input_type -> leonsdb.v1.BulkImportRequest
-	31, // 69: leonsdb.v1.DataService.CommitBulkImport:input_type -> leonsdb.v1.CommitBulkImportRequest
-	33, // 70: leonsdb.v1.DataService.AbortBulkImport:input_type -> leonsdb.v1.AbortBulkImportRequest
-	39, // 71: leonsdb.v1.DataService.Delete:input_type -> leonsdb.v1.DeleteRequest
-	41, // 72: leonsdb.v1.DataService.Scan:input_type -> leonsdb.v1.ScanRequest
-	43, // 73: leonsdb.v1.DataService.Top:input_type -> leonsdb.v1.TopRequest
-	46, // 74: leonsdb.v1.DataService.Rank:input_type -> leonsdb.v1.RankRequest
-	50, // 75: leonsdb.v1.DataService.Transact:input_type -> leonsdb.v1.TransactRequest
-	53, // 76: leonsdb.v1.DataService.WatchChanges:input_type -> leonsdb.v1.WatchChangesRequest
-	17, // 77: leonsdb.v1.DataService.EnsureCollection:output_type -> leonsdb.v1.EnsureCollectionResponse
-	19, // 78: leonsdb.v1.DataService.ListCollections:output_type -> leonsdb.v1.ListCollectionsResponse
-	21, // 79: leonsdb.v1.DataService.Get:output_type -> leonsdb.v1.GetResponse
-	23, // 80: leonsdb.v1.DataService.Apply:output_type -> leonsdb.v1.ApplyResponse
-	36, // 81: leonsdb.v1.DataService.ApplyMany:output_type -> leonsdb.v1.ApplyManyResponse
-	26, // 82: leonsdb.v1.DataService.Import:output_type -> leonsdb.v1.ImportResponse
-	28, // 83: leonsdb.v1.DataService.BeginBulkImport:output_type -> leonsdb.v1.BeginBulkImportResponse
-	30, // 84: leonsdb.v1.DataService.BulkImport:output_type -> leonsdb.v1.BulkImportResponse
-	32, // 85: leonsdb.v1.DataService.CommitBulkImport:output_type -> leonsdb.v1.CommitBulkImportResponse
-	34, // 86: leonsdb.v1.DataService.AbortBulkImport:output_type -> leonsdb.v1.AbortBulkImportResponse
-	40, // 87: leonsdb.v1.DataService.Delete:output_type -> leonsdb.v1.DeleteResponse
-	42, // 88: leonsdb.v1.DataService.Scan:output_type -> leonsdb.v1.ScanResponse
-	45, // 89: leonsdb.v1.DataService.Top:output_type -> leonsdb.v1.TopResponse
-	47, // 90: leonsdb.v1.DataService.Rank:output_type -> leonsdb.v1.RankResponse
-	52, // 91: leonsdb.v1.DataService.Transact:output_type -> leonsdb.v1.TransactResponse
-	54, // 92: leonsdb.v1.DataService.WatchChanges:output_type -> leonsdb.v1.ChangeEvent
-	77, // [77:93] is the sub-list for method output_type
-	61, // [61:77] is the sub-list for method input_type
-	61, // [61:61] is the sub-list for extension type_name
-	61, // [61:61] is the sub-list for extension extendee
-	0,  // [0:61] is the sub-list for field type_name
+	2,  // 11: leonsdb.v1.FieldSchema.duration:type_name -> leonsdb.v1.DurationUnit
+	11, // 12: leonsdb.v1.Schema.fields:type_name -> leonsdb.v1.FieldSchema
+	13, // 13: leonsdb.v1.Record.ref:type_name -> leonsdb.v1.RecordRef
+	58, // 14: leonsdb.v1.Record.fields:type_name -> leonsdb.v1.Record.FieldsEntry
+	4,  // 15: leonsdb.v1.Operation.set:type_name -> leonsdb.v1.Value
+	4,  // 16: leonsdb.v1.Operation.increment:type_name -> leonsdb.v1.Value
+	16, // 17: leonsdb.v1.Operation.unset:type_name -> leonsdb.v1.Unset
+	0,  // 18: leonsdb.v1.EnsureCollectionRequest.kind:type_name -> leonsdb.v1.CollectionKind
+	12, // 19: leonsdb.v1.EnsureCollectionRequest.schema:type_name -> leonsdb.v1.Schema
+	10, // 20: leonsdb.v1.EnsureCollectionResponse.collection:type_name -> leonsdb.v1.Collection
+	10, // 21: leonsdb.v1.ListCollectionsResponse.collections:type_name -> leonsdb.v1.Collection
+	13, // 22: leonsdb.v1.GetRequest.ref:type_name -> leonsdb.v1.RecordRef
+	14, // 23: leonsdb.v1.GetResponse.record:type_name -> leonsdb.v1.Record
+	13, // 24: leonsdb.v1.ApplyRequest.ref:type_name -> leonsdb.v1.RecordRef
+	15, // 25: leonsdb.v1.ApplyRequest.operations:type_name -> leonsdb.v1.Operation
+	59, // 26: leonsdb.v1.ApplyResponse.fields:type_name -> leonsdb.v1.ApplyResponse.FieldsEntry
+	26, // 27: leonsdb.v1.ImportRequest.records:type_name -> leonsdb.v1.ImportRecord
+	60, // 28: leonsdb.v1.ImportRecord.fields:type_name -> leonsdb.v1.ImportRecord.FieldsEntry
+	38, // 29: leonsdb.v1.ImportResponse.results:type_name -> leonsdb.v1.ApplyOutcome
+	26, // 30: leonsdb.v1.BulkImportRequest.records:type_name -> leonsdb.v1.ImportRecord
+	38, // 31: leonsdb.v1.BulkImportResponse.results:type_name -> leonsdb.v1.ApplyOutcome
+	23, // 32: leonsdb.v1.ApplyManyRequest.writes:type_name -> leonsdb.v1.ApplyRequest
+	38, // 33: leonsdb.v1.ApplyManyResponse.results:type_name -> leonsdb.v1.ApplyOutcome
+	24, // 34: leonsdb.v1.ApplyOutcome.response:type_name -> leonsdb.v1.ApplyResponse
+	39, // 35: leonsdb.v1.ApplyOutcome.error:type_name -> leonsdb.v1.WriteError
+	13, // 36: leonsdb.v1.DeleteRequest.ref:type_name -> leonsdb.v1.RecordRef
+	14, // 37: leonsdb.v1.ScanResponse.records:type_name -> leonsdb.v1.Record
+	13, // 38: leonsdb.v1.RankedEntry.ref:type_name -> leonsdb.v1.RecordRef
+	4,  // 39: leonsdb.v1.RankedEntry.value:type_name -> leonsdb.v1.Value
+	14, // 40: leonsdb.v1.RankedEntry.record:type_name -> leonsdb.v1.Record
+	45, // 41: leonsdb.v1.TopResponse.entries:type_name -> leonsdb.v1.RankedEntry
+	13, // 42: leonsdb.v1.RankRequest.ref:type_name -> leonsdb.v1.RecordRef
+	4,  // 43: leonsdb.v1.RankResponse.value:type_name -> leonsdb.v1.Value
+	3,  // 44: leonsdb.v1.Condition.comparison:type_name -> leonsdb.v1.Comparison
+	4,  // 45: leonsdb.v1.Condition.value:type_name -> leonsdb.v1.Value
+	13, // 46: leonsdb.v1.TransactionWrite.ref:type_name -> leonsdb.v1.RecordRef
+	15, // 47: leonsdb.v1.TransactionWrite.operations:type_name -> leonsdb.v1.Operation
+	49, // 48: leonsdb.v1.TransactionWrite.conditions:type_name -> leonsdb.v1.Condition
+	15, // 49: leonsdb.v1.TransactionWrite.owner_operations:type_name -> leonsdb.v1.Operation
+	50, // 50: leonsdb.v1.TransactRequest.writes:type_name -> leonsdb.v1.TransactionWrite
+	61, // 51: leonsdb.v1.TransactionResult.fields:type_name -> leonsdb.v1.TransactionResult.FieldsEntry
+	52, // 52: leonsdb.v1.TransactResponse.results:type_name -> leonsdb.v1.TransactionResult
+	13, // 53: leonsdb.v1.ChangeEvent.ref:type_name -> leonsdb.v1.RecordRef
+	62, // 54: leonsdb.v1.ChangeEvent.fields:type_name -> leonsdb.v1.ChangeEvent.FieldsEntry
+	4,  // 55: leonsdb.v1.ValueMap.EntriesEntry.value:type_name -> leonsdb.v1.Value
+	7,  // 56: leonsdb.v1.Inventory.SlotsEntry.value:type_name -> leonsdb.v1.MinecraftItem
+	4,  // 57: leonsdb.v1.Record.FieldsEntry.value:type_name -> leonsdb.v1.Value
+	4,  // 58: leonsdb.v1.ApplyResponse.FieldsEntry.value:type_name -> leonsdb.v1.Value
+	4,  // 59: leonsdb.v1.ImportRecord.FieldsEntry.value:type_name -> leonsdb.v1.Value
+	4,  // 60: leonsdb.v1.TransactionResult.FieldsEntry.value:type_name -> leonsdb.v1.Value
+	4,  // 61: leonsdb.v1.ChangeEvent.FieldsEntry.value:type_name -> leonsdb.v1.Value
+	17, // 62: leonsdb.v1.DataService.EnsureCollection:input_type -> leonsdb.v1.EnsureCollectionRequest
+	19, // 63: leonsdb.v1.DataService.ListCollections:input_type -> leonsdb.v1.ListCollectionsRequest
+	21, // 64: leonsdb.v1.DataService.Get:input_type -> leonsdb.v1.GetRequest
+	23, // 65: leonsdb.v1.DataService.Apply:input_type -> leonsdb.v1.ApplyRequest
+	36, // 66: leonsdb.v1.DataService.ApplyMany:input_type -> leonsdb.v1.ApplyManyRequest
+	25, // 67: leonsdb.v1.DataService.Import:input_type -> leonsdb.v1.ImportRequest
+	28, // 68: leonsdb.v1.DataService.BeginBulkImport:input_type -> leonsdb.v1.BeginBulkImportRequest
+	30, // 69: leonsdb.v1.DataService.BulkImport:input_type -> leonsdb.v1.BulkImportRequest
+	32, // 70: leonsdb.v1.DataService.CommitBulkImport:input_type -> leonsdb.v1.CommitBulkImportRequest
+	34, // 71: leonsdb.v1.DataService.AbortBulkImport:input_type -> leonsdb.v1.AbortBulkImportRequest
+	40, // 72: leonsdb.v1.DataService.Delete:input_type -> leonsdb.v1.DeleteRequest
+	42, // 73: leonsdb.v1.DataService.Scan:input_type -> leonsdb.v1.ScanRequest
+	44, // 74: leonsdb.v1.DataService.Top:input_type -> leonsdb.v1.TopRequest
+	47, // 75: leonsdb.v1.DataService.Rank:input_type -> leonsdb.v1.RankRequest
+	51, // 76: leonsdb.v1.DataService.Transact:input_type -> leonsdb.v1.TransactRequest
+	54, // 77: leonsdb.v1.DataService.WatchChanges:input_type -> leonsdb.v1.WatchChangesRequest
+	18, // 78: leonsdb.v1.DataService.EnsureCollection:output_type -> leonsdb.v1.EnsureCollectionResponse
+	20, // 79: leonsdb.v1.DataService.ListCollections:output_type -> leonsdb.v1.ListCollectionsResponse
+	22, // 80: leonsdb.v1.DataService.Get:output_type -> leonsdb.v1.GetResponse
+	24, // 81: leonsdb.v1.DataService.Apply:output_type -> leonsdb.v1.ApplyResponse
+	37, // 82: leonsdb.v1.DataService.ApplyMany:output_type -> leonsdb.v1.ApplyManyResponse
+	27, // 83: leonsdb.v1.DataService.Import:output_type -> leonsdb.v1.ImportResponse
+	29, // 84: leonsdb.v1.DataService.BeginBulkImport:output_type -> leonsdb.v1.BeginBulkImportResponse
+	31, // 85: leonsdb.v1.DataService.BulkImport:output_type -> leonsdb.v1.BulkImportResponse
+	33, // 86: leonsdb.v1.DataService.CommitBulkImport:output_type -> leonsdb.v1.CommitBulkImportResponse
+	35, // 87: leonsdb.v1.DataService.AbortBulkImport:output_type -> leonsdb.v1.AbortBulkImportResponse
+	41, // 88: leonsdb.v1.DataService.Delete:output_type -> leonsdb.v1.DeleteResponse
+	43, // 89: leonsdb.v1.DataService.Scan:output_type -> leonsdb.v1.ScanResponse
+	46, // 90: leonsdb.v1.DataService.Top:output_type -> leonsdb.v1.TopResponse
+	48, // 91: leonsdb.v1.DataService.Rank:output_type -> leonsdb.v1.RankResponse
+	53, // 92: leonsdb.v1.DataService.Transact:output_type -> leonsdb.v1.TransactResponse
+	55, // 93: leonsdb.v1.DataService.WatchChanges:output_type -> leonsdb.v1.ChangeEvent
+	78, // [78:94] is the sub-list for method output_type
+	62, // [62:78] is the sub-list for method input_type
+	62, // [62:62] is the sub-list for extension type_name
+	62, // [62:62] is the sub-list for extension extendee
+	0,  // [0:62] is the sub-list for field type_name
 }
 
 func init() { file_leonsdb_v1_data_proto_init() }
@@ -4198,7 +4270,7 @@ func file_leonsdb_v1_data_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_leonsdb_v1_data_proto_rawDesc), len(file_leonsdb_v1_data_proto_rawDesc)),
-			NumEnums:      3,
+			NumEnums:      4,
 			NumMessages:   59,
 			NumExtensions: 0,
 			NumServices:   1,

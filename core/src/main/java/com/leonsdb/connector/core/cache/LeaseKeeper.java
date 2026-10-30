@@ -113,6 +113,8 @@ final class LeaseKeeper {
         return acquire(uuid, wait, load, null);
     }
 
+    volatile long lastReplyAt; // wip: when the last Acquire's answer arrived
+
     /**
      * Like {@link #acquire(UUID, Duration, java.util.List)}, also telling LeonsDB the player's name.
      *
@@ -125,6 +127,7 @@ final class LeaseKeeper {
     com.leonsdb.proto.v1.AcquireLeaseResponse acquire(UUID uuid, Duration wait, java.util.List<String> load, String name) {
         try {
             var resp = client.acquireLease(bytes(uuid), holderId, holderName, wait.toMillis(), load, name, true)
+                    .whenComplete((r, e) -> lastReplyAt = System.nanoTime()) // wip: timing
                     .get(wait.toMillis() + 10_000, TimeUnit.MILLISECONDS);
             if (resp.getTtlMs() > 0 && resp.getTtlMs() != ttlMillis) {
                 ttlMillis = resp.getTtlMs();

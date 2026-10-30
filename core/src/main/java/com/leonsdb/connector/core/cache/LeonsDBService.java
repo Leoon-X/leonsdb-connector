@@ -104,6 +104,9 @@ public final class LeonsDBService implements LeonsDBProvider {
      * turns it off, for tests that measure it.
      */
     private static final boolean WARM_UP = Boolean.parseBoolean(System.getProperty("leonsdb.warmUp", "true"));
+    // wip: -Dleonsdb.debug.handovers=true logs where a load's time went.
+    private static final boolean DEBUG_LOADS = Boolean.getBoolean("leonsdb.debug.handovers");
+    private volatile long lastAcquireStart, lastAcquireEnd, lastDecode;
     private static final Duration UNLOAD_RETRY = Duration.ofSeconds(2);
     private static final Duration TAKE_BACK_WAIT = Duration.ofSeconds(5);
     private static final Duration TAKE_BACK_RETRY = Duration.ofSeconds(1);
@@ -307,6 +310,8 @@ public final class LeonsDBService implements LeonsDBProvider {
      * @throws LeonsDBException as {@link #loadPlayer(UUID)}
      */
     public void loadPlayer(UUID uuid, String name) {
+        long t0 = System.nanoTime(), at = System.currentTimeMillis();
+        long[] jvm0 = DEBUG_LOADS ? jvmCounters() : null;
         CompletableFuture<Void> released;
         synchronized (loading) {
             loading.add(uuid);
@@ -322,7 +327,19 @@ public final class LeonsDBService implements LeonsDBProvider {
                     // it expires on its own; acquiring waits for that
                 }
             }
+            long t1 = System.nanoTime();
             load(uuid, name);
+            if (DEBUG_LOADS) {
+                long t2 = System.nanoTime();
+                long[] jvm1 = jvmCounters();
+                log.info(String.format(java.util.Locale.ROOT, "LOAD %s at %d: waited %.1f ms, loaded %.1f ms (acquire %.1f ms: "
+                        + "reply after %.1f ms, seen %.1f ms later; decode %.1f ms); jvm during it: +%d classes, "
+                        + "+%d ms JIT, +%d ms GC, uptime %d ms",
+                        uuid, at, (t1 - t0) / 1e6, (t2 - t1) / 1e6, (lastAcquireEnd - lastAcquireStart) / 1e6,
+                        (leases.lastReplyAt - lastAcquireStart) / 1e6, (lastAcquireEnd - leases.lastReplyAt) / 1e6,
+                        lastDecode / 1e6, jvm1[0] - jvm0[0], jvm1[1] - jvm0[1], jvm1[2] - jvm0[2],
+                        java.lang.management.ManagementFactory.getRuntimeMXBean().getUptime()));
+            }
         } finally {
             loading.remove(uuid);
         }
@@ -345,7 +362,9 @@ public final class LeonsDBService implements LeonsDBProvider {
         }
 
         // Ownership and the player's records in one round trip.
+        lastAcquireStart = System.nanoTime();
         var acquired = leases.acquire(uuid, settings.leaseWait(), playerCollections(), name);
+        lastAcquireEnd = System.nanoTime();
 
         PlayerSession session = new PlayerSession(uuid, acquired.getEpoch());
         session.name = name;
@@ -365,6 +384,7 @@ public final class LeonsDBService implements LeonsDBProvider {
                 loads.add(loadObject(session, schema)); // a server from before 0.9
             }
         }
+        lastDecode = System.nanoTime() - lastAcquireEnd;
         try {
             CompletableFuture.allOf(loads.toArray(new CompletableFuture<?>[0])).get(remaining(deadline), TimeUnit.NANOSECONDS);
         } catch (ExecutionException e) {
@@ -385,6 +405,17 @@ public final class LeonsDBService implements LeonsDBProvider {
         if (stale != null) {
             sendLateChanges(stale);
         }
+    }
+
+    /** wip: classes loaded, JIT ms and GC ms so far, for DEBUG_LOADS. */
+    private static long[] jvmCounters() {
+        long gc = 0;
+        for (var b : java.lang.management.ManagementFactory.getGarbageCollectorMXBeans()) {
+            gc += Math.max(0, b.getCollectionTime());
+        }
+        var jit = java.lang.management.ManagementFactory.getCompilationMXBean();
+        return new long[] {java.lang.management.ManagementFactory.getClassLoadingMXBean().getTotalLoadedClassCount(),
+                jit == null ? 0 : jit.getTotalCompilationTime(), gc};
     }
 
     /** @return the registered player collections, as "namespace.collection" */

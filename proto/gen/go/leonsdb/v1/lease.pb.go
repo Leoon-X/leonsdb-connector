@@ -159,6 +159,10 @@ type AcquireLeaseRequest struct {
 	// ("namespace.collection") once ownership is granted, so that joining
 	// takes one round trip.
 	Load []string `protobuf:"bytes,5,rep,name=load,proto3" json:"load,omitempty"`
+	// The player's name as the Minecraft server knows it, optional. LeonsDB
+	// keeps it in its player directory with when and where the player last
+	// joined, so tools such as the dashboard can find players by name.
+	PlayerName string `protobuf:"bytes,6,opt,name=player_name,json=playerName,proto3" json:"player_name,omitempty"`
 	// This holder will call Joined once the player has joined it.
 	ConfirmsJoin  bool `protobuf:"varint,7,opt,name=confirms_join,json=confirmsJoin,proto3" json:"confirms_join,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -228,6 +232,13 @@ func (x *AcquireLeaseRequest) GetLoad() []string {
 		return x.Load
 	}
 	return nil
+}
+
+func (x *AcquireLeaseRequest) GetPlayerName() string {
+	if x != nil {
+		return x.PlayerName
+	}
+	return ""
 }
 
 func (x *AcquireLeaseRequest) GetConfirmsJoin() bool {
@@ -1319,14 +1330,16 @@ var File_leonsdb_v1_lease_proto protoreflect.FileDescriptor
 const file_leonsdb_v1_lease_proto_rawDesc = "" +
 	"\n" +
 	"\x16leonsdb/v1/lease.proto\x12\n" +
-	"leonsdb.v1\x1a\x15leonsdb/v1/data.proto\"\xbd\x01\n" +
+	"leonsdb.v1\x1a\x15leonsdb/v1/data.proto\"\xde\x01\n" +
 	"\x13AcquireLeaseRequest\x12\x16\n" +
 	"\x06player\x18\x01 \x01(\fR\x06player\x12\x1b\n" +
 	"\tholder_id\x18\x02 \x01(\tR\bholderId\x12\x1f\n" +
 	"\vholder_name\x18\x03 \x01(\tR\n" +
 	"holderName\x12\x17\n" +
 	"\await_ms\x18\x04 \x01(\rR\x06waitMs\x12\x12\n" +
-	"\x04load\x18\x05 \x03(\tR\x04load\x12#\n" +
+	"\x04load\x18\x05 \x03(\tR\x04load\x12\x1f\n" +
+	"\vplayer_name\x18\x06 \x01(\tR\n" +
+	"playerName\x12#\n" +
 	"\rconfirms_join\x18\a \x01(\bR\fconfirmsJoin\"\x89\x01\n" +
 	"\x14AcquireLeaseResponse\x12\x14\n" +
 	"\x05epoch\x18\x01 \x01(\x04R\x05epoch\x12\x15\n" +

@@ -91,6 +91,10 @@ message AcquireLeaseRequest {
   // ("namespace.collection") once ownership is granted, so that joining
   // takes one round trip.
   repeated string load = 5;
+  // The player's name as the Minecraft server knows it, optional. LeonsDB
+  // keeps it in its player directory with when and where the player last
+  // joined, so tools such as the dashboard can find players by name.
+  string player_name = 6;
   // This holder will call Joined once the player has joined it.
   bool confirms_join = 7;
 }

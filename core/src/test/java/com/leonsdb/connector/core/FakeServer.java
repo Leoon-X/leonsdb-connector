@@ -88,6 +88,8 @@ public final class FakeServer implements AutoCloseable {
     public volatile boolean noTakeBack;
     /** Hold TakeBack calls until released. */
     public volatile java.util.concurrent.CountDownLatch holdTakeBacks;
+    /** The player name of the last Acquire or TakeBack. */
+    public volatile String lastPlayerName;
     /** TakeBack calls so far. */
     public final java.util.concurrent.atomic.AtomicInteger takeBacks = new java.util.concurrent.atomic.AtomicInteger();
     /** Who gets a player the moment its owner releases it (the server it switches to), or null. */
@@ -458,6 +460,7 @@ public final class FakeServer implements AutoCloseable {
         @Override
         public void acquire(AcquireLeaseRequest req,
                             StreamObserver<AcquireLeaseResponse> obs) {
+            lastPlayerName = req.getPlayerName();
             if (injectFailure(obs)) {
                 return;
             }

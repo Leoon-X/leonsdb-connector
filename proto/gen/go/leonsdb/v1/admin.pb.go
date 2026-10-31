@@ -409,6 +409,247 @@ func (x *ListBackupsResponse) GetBackups() []*Backup {
 	return nil
 }
 
+type GetBackupStatusRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetBackupStatusRequest) Reset() {
+	*x = GetBackupStatusRequest{}
+	mi := &file_leonsdb_v1_admin_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetBackupStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBackupStatusRequest) ProtoMessage() {}
+
+func (x *GetBackupStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_leonsdb_v1_admin_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBackupStatusRequest.ProtoReflect.Descriptor instead.
+func (*GetBackupStatusRequest) Descriptor() ([]byte, []int) {
+	return file_leonsdb_v1_admin_proto_rawDescGZIP(), []int{6}
+}
+
+type GetBackupStatusResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Status        *BackupStatus          `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetBackupStatusResponse) Reset() {
+	*x = GetBackupStatusResponse{}
+	mi := &file_leonsdb_v1_admin_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetBackupStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBackupStatusResponse) ProtoMessage() {}
+
+func (x *GetBackupStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_leonsdb_v1_admin_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBackupStatusResponse.ProtoReflect.Descriptor instead.
+func (*GetBackupStatusResponse) Descriptor() ([]byte, []int) {
+	return file_leonsdb_v1_admin_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *GetBackupStatusResponse) GetStatus() *BackupStatus {
+	if x != nil {
+		return x.Status
+	}
+	return nil
+}
+
+// BackupStatus is the state of the backups. Times are milliseconds since
+// the Unix epoch, 0 when there is none. The failures are kept in memory
+// only: a restart forgets them.
+type BackupStatus struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// False when backups.dir is not set: no backups are made.
+	Configured bool `protobuf:"varint,1,opt,name=configured,proto3" json:"configured,omitempty"`
+	// Where backups are stored on the server's machine.
+	Dir string `protobuf:"bytes,2,opt,name=dir,proto3" json:"dir,omitempty"`
+	// How often a backup is made automatically.
+	IntervalHours uint32 `protobuf:"varint,3,opt,name=interval_hours,json=intervalHours,proto3" json:"interval_hours,omitempty"`
+	// How many backups are kept.
+	Keep      uint32 `protobuf:"varint,4,opt,name=keep,proto3" json:"keep,omitempty"`
+	Encrypted bool   `protobuf:"varint,5,opt,name=encrypted,proto3" json:"encrypted,omitempty"`
+	// Backups are also uploaded to S3-compatible storage.
+	Upload bool `protobuf:"varint,6,opt,name=upload,proto3" json:"upload,omitempty"`
+	// When the backup running now started; 0 when none is running.
+	RunningSince int64 `protobuf:"varint,7,opt,name=running_since,json=runningSince,proto3" json:"running_since,omitempty"`
+	// When the next automatic backup is due.
+	NextAt int64 `protobuf:"varint,8,opt,name=next_at,json=nextAt,proto3" json:"next_at,omitempty"`
+	// The newest backup that was made (also after a restart, from the files).
+	LastSuccessAt   int64  `protobuf:"varint,9,opt,name=last_success_at,json=lastSuccessAt,proto3" json:"last_success_at,omitempty"`
+	LastSuccessName string `protobuf:"bytes,10,opt,name=last_success_name,json=lastSuccessName,proto3" json:"last_success_name,omitempty"`
+	// The last backup that failed, and why.
+	LastFailureAt int64  `protobuf:"varint,11,opt,name=last_failure_at,json=lastFailureAt,proto3" json:"last_failure_at,omitempty"`
+	LastFailure   string `protobuf:"bytes,12,opt,name=last_failure,json=lastFailure,proto3" json:"last_failure,omitempty"`
+	// The last upload that failed, and why; the backup itself was made.
+	LastUploadFailureAt int64  `protobuf:"varint,13,opt,name=last_upload_failure_at,json=lastUploadFailureAt,proto3" json:"last_upload_failure_at,omitempty"`
+	LastUploadFailure   string `protobuf:"bytes,14,opt,name=last_upload_failure,json=lastUploadFailure,proto3" json:"last_upload_failure,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *BackupStatus) Reset() {
+	*x = BackupStatus{}
+	mi := &file_leonsdb_v1_admin_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BackupStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BackupStatus) ProtoMessage() {}
+
+func (x *BackupStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_leonsdb_v1_admin_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BackupStatus.ProtoReflect.Descriptor instead.
+func (*BackupStatus) Descriptor() ([]byte, []int) {
+	return file_leonsdb_v1_admin_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *BackupStatus) GetConfigured() bool {
+	if x != nil {
+		return x.Configured
+	}
+	return false
+}
+
+func (x *BackupStatus) GetDir() string {
+	if x != nil {
+		return x.Dir
+	}
+	return ""
+}
+
+func (x *BackupStatus) GetIntervalHours() uint32 {
+	if x != nil {
+		return x.IntervalHours
+	}
+	return 0
+}
+
+func (x *BackupStatus) GetKeep() uint32 {
+	if x != nil {
+		return x.Keep
+	}
+	return 0
+}
+
+func (x *BackupStatus) GetEncrypted() bool {
+	if x != nil {
+		return x.Encrypted
+	}
+	return false
+}
+
+func (x *BackupStatus) GetUpload() bool {
+	if x != nil {
+		return x.Upload
+	}
+	return false
+}
+
+func (x *BackupStatus) GetRunningSince() int64 {
+	if x != nil {
+		return x.RunningSince
+	}
+	return 0
+}
+
+func (x *BackupStatus) GetNextAt() int64 {
+	if x != nil {
+		return x.NextAt
+	}
+	return 0
+}
+
+func (x *BackupStatus) GetLastSuccessAt() int64 {
+	if x != nil {
+		return x.LastSuccessAt
+	}
+	return 0
+}
+
+func (x *BackupStatus) GetLastSuccessName() string {
+	if x != nil {
+		return x.LastSuccessName
+	}
+	return ""
+}
+
+func (x *BackupStatus) GetLastFailureAt() int64 {
+	if x != nil {
+		return x.LastFailureAt
+	}
+	return 0
+}
+
+func (x *BackupStatus) GetLastFailure() string {
+	if x != nil {
+		return x.LastFailure
+	}
+	return ""
+}
+
+func (x *BackupStatus) GetLastUploadFailureAt() int64 {
+	if x != nil {
+		return x.LastUploadFailureAt
+	}
+	return 0
+}
+
+func (x *BackupStatus) GetLastUploadFailure() string {
+	if x != nil {
+		return x.LastUploadFailure
+	}
+	return ""
+}
+
 type Backup struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// File name, for example leonsdb-20261024T140000Z.tar.zst.age.
@@ -425,7 +666,7 @@ type Backup struct {
 
 func (x *Backup) Reset() {
 	*x = Backup{}
-	mi := &file_leonsdb_v1_admin_proto_msgTypes[6]
+	mi := &file_leonsdb_v1_admin_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -437,7 +678,7 @@ func (x *Backup) String() string {
 func (*Backup) ProtoMessage() {}
 
 func (x *Backup) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_admin_proto_msgTypes[6]
+	mi := &file_leonsdb_v1_admin_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -450,7 +691,7 @@ func (x *Backup) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Backup.ProtoReflect.Descriptor instead.
 func (*Backup) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_admin_proto_rawDescGZIP(), []int{6}
+	return file_leonsdb_v1_admin_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *Backup) GetName() string {
@@ -506,7 +747,7 @@ type Grant struct {
 
 func (x *Grant) Reset() {
 	*x = Grant{}
-	mi := &file_leonsdb_v1_admin_proto_msgTypes[7]
+	mi := &file_leonsdb_v1_admin_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -518,7 +759,7 @@ func (x *Grant) String() string {
 func (*Grant) ProtoMessage() {}
 
 func (x *Grant) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_admin_proto_msgTypes[7]
+	mi := &file_leonsdb_v1_admin_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -531,7 +772,7 @@ func (x *Grant) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Grant.ProtoReflect.Descriptor instead.
 func (*Grant) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_admin_proto_rawDescGZIP(), []int{7}
+	return file_leonsdb_v1_admin_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *Grant) GetNamespace() string {
@@ -574,14 +815,18 @@ type Token struct {
 	// What a ROLE_API token may access.
 	Grants []*Grant `protobuf:"bytes,5,rep,name=grants,proto3" json:"grants,omitempty"`
 	// Requests per second allowed from each client address; 0 means no limit.
-	RateLimit     uint32 `protobuf:"varint,6,opt,name=rate_limit,json=rateLimit,proto3" json:"rate_limit,omitempty"`
+	RateLimit uint32 `protobuf:"varint,6,opt,name=rate_limit,json=rateLimit,proto3" json:"rate_limit,omitempty"`
+	// When the token was last used, in milliseconds since the Unix epoch; 0
+	// if it has not been used since the server began recording it. It is
+	// saved once a minute, so after a restart it can be up to a minute early.
+	LastUsedAt    int64 `protobuf:"varint,7,opt,name=last_used_at,json=lastUsedAt,proto3" json:"last_used_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Token) Reset() {
 	*x = Token{}
-	mi := &file_leonsdb_v1_admin_proto_msgTypes[8]
+	mi := &file_leonsdb_v1_admin_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -593,7 +838,7 @@ func (x *Token) String() string {
 func (*Token) ProtoMessage() {}
 
 func (x *Token) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_admin_proto_msgTypes[8]
+	mi := &file_leonsdb_v1_admin_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -606,7 +851,7 @@ func (x *Token) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Token.ProtoReflect.Descriptor instead.
 func (*Token) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_admin_proto_rawDescGZIP(), []int{8}
+	return file_leonsdb_v1_admin_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *Token) GetId() string {
@@ -651,6 +896,13 @@ func (x *Token) GetRateLimit() uint32 {
 	return 0
 }
 
+func (x *Token) GetLastUsedAt() int64 {
+	if x != nil {
+		return x.LastUsedAt
+	}
+	return 0
+}
+
 type CreateTokenRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// 1 to 64 characters.
@@ -667,7 +919,7 @@ type CreateTokenRequest struct {
 
 func (x *CreateTokenRequest) Reset() {
 	*x = CreateTokenRequest{}
-	mi := &file_leonsdb_v1_admin_proto_msgTypes[9]
+	mi := &file_leonsdb_v1_admin_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -679,7 +931,7 @@ func (x *CreateTokenRequest) String() string {
 func (*CreateTokenRequest) ProtoMessage() {}
 
 func (x *CreateTokenRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_admin_proto_msgTypes[9]
+	mi := &file_leonsdb_v1_admin_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -692,7 +944,7 @@ func (x *CreateTokenRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTokenRequest.ProtoReflect.Descriptor instead.
 func (*CreateTokenRequest) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_admin_proto_rawDescGZIP(), []int{9}
+	return file_leonsdb_v1_admin_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *CreateTokenRequest) GetName() string {
@@ -734,7 +986,7 @@ type CreateTokenResponse struct {
 
 func (x *CreateTokenResponse) Reset() {
 	*x = CreateTokenResponse{}
-	mi := &file_leonsdb_v1_admin_proto_msgTypes[10]
+	mi := &file_leonsdb_v1_admin_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -746,7 +998,7 @@ func (x *CreateTokenResponse) String() string {
 func (*CreateTokenResponse) ProtoMessage() {}
 
 func (x *CreateTokenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_admin_proto_msgTypes[10]
+	mi := &file_leonsdb_v1_admin_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -759,7 +1011,7 @@ func (x *CreateTokenResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTokenResponse.ProtoReflect.Descriptor instead.
 func (*CreateTokenResponse) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_admin_proto_rawDescGZIP(), []int{10}
+	return file_leonsdb_v1_admin_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *CreateTokenResponse) GetToken() *Token {
@@ -784,7 +1036,7 @@ type ListTokensRequest struct {
 
 func (x *ListTokensRequest) Reset() {
 	*x = ListTokensRequest{}
-	mi := &file_leonsdb_v1_admin_proto_msgTypes[11]
+	mi := &file_leonsdb_v1_admin_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -796,7 +1048,7 @@ func (x *ListTokensRequest) String() string {
 func (*ListTokensRequest) ProtoMessage() {}
 
 func (x *ListTokensRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_admin_proto_msgTypes[11]
+	mi := &file_leonsdb_v1_admin_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -809,7 +1061,7 @@ func (x *ListTokensRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTokensRequest.ProtoReflect.Descriptor instead.
 func (*ListTokensRequest) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_admin_proto_rawDescGZIP(), []int{11}
+	return file_leonsdb_v1_admin_proto_rawDescGZIP(), []int{14}
 }
 
 type ListTokensResponse struct {
@@ -821,7 +1073,7 @@ type ListTokensResponse struct {
 
 func (x *ListTokensResponse) Reset() {
 	*x = ListTokensResponse{}
-	mi := &file_leonsdb_v1_admin_proto_msgTypes[12]
+	mi := &file_leonsdb_v1_admin_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -833,7 +1085,7 @@ func (x *ListTokensResponse) String() string {
 func (*ListTokensResponse) ProtoMessage() {}
 
 func (x *ListTokensResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_admin_proto_msgTypes[12]
+	mi := &file_leonsdb_v1_admin_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -846,7 +1098,7 @@ func (x *ListTokensResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTokensResponse.ProtoReflect.Descriptor instead.
 func (*ListTokensResponse) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_admin_proto_rawDescGZIP(), []int{12}
+	return file_leonsdb_v1_admin_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ListTokensResponse) GetTokens() []*Token {
@@ -865,7 +1117,7 @@ type RevokeTokenRequest struct {
 
 func (x *RevokeTokenRequest) Reset() {
 	*x = RevokeTokenRequest{}
-	mi := &file_leonsdb_v1_admin_proto_msgTypes[13]
+	mi := &file_leonsdb_v1_admin_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -877,7 +1129,7 @@ func (x *RevokeTokenRequest) String() string {
 func (*RevokeTokenRequest) ProtoMessage() {}
 
 func (x *RevokeTokenRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_admin_proto_msgTypes[13]
+	mi := &file_leonsdb_v1_admin_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -890,7 +1142,7 @@ func (x *RevokeTokenRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeTokenRequest.ProtoReflect.Descriptor instead.
 func (*RevokeTokenRequest) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_admin_proto_rawDescGZIP(), []int{13}
+	return file_leonsdb_v1_admin_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *RevokeTokenRequest) GetId() string {
@@ -910,7 +1162,7 @@ type RevokeTokenResponse struct {
 
 func (x *RevokeTokenResponse) Reset() {
 	*x = RevokeTokenResponse{}
-	mi := &file_leonsdb_v1_admin_proto_msgTypes[14]
+	mi := &file_leonsdb_v1_admin_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -922,7 +1174,7 @@ func (x *RevokeTokenResponse) String() string {
 func (*RevokeTokenResponse) ProtoMessage() {}
 
 func (x *RevokeTokenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_leonsdb_v1_admin_proto_msgTypes[14]
+	mi := &file_leonsdb_v1_admin_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -935,7 +1187,7 @@ func (x *RevokeTokenResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeTokenResponse.ProtoReflect.Descriptor instead.
 func (*RevokeTokenResponse) Descriptor() ([]byte, []int) {
-	return file_leonsdb_v1_admin_proto_rawDescGZIP(), []int{14}
+	return file_leonsdb_v1_admin_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *RevokeTokenResponse) GetExisted() bool {
@@ -962,7 +1214,28 @@ const file_leonsdb_v1_admin_proto_rawDesc = "" +
 	"\x06backup\x18\x01 \x01(\v2\x12.leonsdb.v1.BackupR\x06backup\"\x14\n" +
 	"\x12ListBackupsRequest\"C\n" +
 	"\x13ListBackupsResponse\x12,\n" +
-	"\abackups\x18\x01 \x03(\v2\x12.leonsdb.v1.BackupR\abackups\"\x96\x01\n" +
+	"\abackups\x18\x01 \x03(\v2\x12.leonsdb.v1.BackupR\abackups\"\x18\n" +
+	"\x16GetBackupStatusRequest\"K\n" +
+	"\x17GetBackupStatusResponse\x120\n" +
+	"\x06status\x18\x01 \x01(\v2\x18.leonsdb.v1.BackupStatusR\x06status\"\xf3\x03\n" +
+	"\fBackupStatus\x12\x1e\n" +
+	"\n" +
+	"configured\x18\x01 \x01(\bR\n" +
+	"configured\x12\x10\n" +
+	"\x03dir\x18\x02 \x01(\tR\x03dir\x12%\n" +
+	"\x0einterval_hours\x18\x03 \x01(\rR\rintervalHours\x12\x12\n" +
+	"\x04keep\x18\x04 \x01(\rR\x04keep\x12\x1c\n" +
+	"\tencrypted\x18\x05 \x01(\bR\tencrypted\x12\x16\n" +
+	"\x06upload\x18\x06 \x01(\bR\x06upload\x12#\n" +
+	"\rrunning_since\x18\a \x01(\x03R\frunningSince\x12\x17\n" +
+	"\anext_at\x18\b \x01(\x03R\x06nextAt\x12&\n" +
+	"\x0flast_success_at\x18\t \x01(\x03R\rlastSuccessAt\x12*\n" +
+	"\x11last_success_name\x18\n" +
+	" \x01(\tR\x0flastSuccessName\x12&\n" +
+	"\x0flast_failure_at\x18\v \x01(\x03R\rlastFailureAt\x12!\n" +
+	"\flast_failure\x18\f \x01(\tR\vlastFailure\x123\n" +
+	"\x16last_upload_failure_at\x18\r \x01(\x03R\x13lastUploadFailureAt\x12.\n" +
+	"\x13last_upload_failure\x18\x0e \x01(\tR\x11lastUploadFailure\"\x96\x01\n" +
 	"\x06Backup\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1d\n" +
 	"\n" +
@@ -977,7 +1250,7 @@ const file_leonsdb_v1_admin_proto_rawDesc = "" +
 	"collection\x18\x02 \x01(\tR\n" +
 	"collection\x12*\n" +
 	"\x06access\x18\x03 \x01(\x0e2\x12.leonsdb.v1.AccessR\x06access\x12\x16\n" +
-	"\x06fields\x18\x04 \x03(\tR\x06fields\"\xba\x01\n" +
+	"\x06fields\x18\x04 \x03(\tR\x06fields\"\xdc\x01\n" +
 	"\x05Token\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12$\n" +
@@ -986,7 +1259,9 @@ const file_leonsdb_v1_admin_proto_rawDesc = "" +
 	"created_at\x18\x04 \x01(\x03R\tcreatedAt\x12)\n" +
 	"\x06grants\x18\x05 \x03(\v2\x11.leonsdb.v1.GrantR\x06grants\x12\x1d\n" +
 	"\n" +
-	"rate_limit\x18\x06 \x01(\rR\trateLimit\"\x98\x01\n" +
+	"rate_limit\x18\x06 \x01(\rR\trateLimit\x12 \n" +
+	"\flast_used_at\x18\a \x01(\x03R\n" +
+	"lastUsedAt\"\x98\x01\n" +
 	"\x12CreateTokenRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12$\n" +
 	"\x04role\x18\x02 \x01(\x0e2\x10.leonsdb.v1.RoleR\x04role\x12)\n" +
@@ -1016,7 +1291,7 @@ const file_leonsdb_v1_admin_proto_rawDesc = "" +
 	"\x12ACCESS_UNSPECIFIED\x10\x00\x12\x0f\n" +
 	"\vACCESS_READ\x10\x01\x12\x10\n" +
 	"\fACCESS_WRITE\x10\x02\x12\x15\n" +
-	"\x11ACCESS_READ_WRITE\x10\x032\xee\x03\n" +
+	"\x11ACCESS_READ_WRITE\x10\x032\xca\x04\n" +
 	"\fAdminService\x12N\n" +
 	"\vCreateToken\x12\x1e.leonsdb.v1.CreateTokenRequest\x1a\x1f.leonsdb.v1.CreateTokenResponse\x12K\n" +
 	"\n" +
@@ -1024,7 +1299,8 @@ const file_leonsdb_v1_admin_proto_rawDesc = "" +
 	"\vRevokeToken\x12\x1e.leonsdb.v1.RevokeTokenRequest\x1a\x1f.leonsdb.v1.RevokeTokenResponse\x12N\n" +
 	"\vPurgePlayer\x12\x1e.leonsdb.v1.PurgePlayerRequest\x1a\x1f.leonsdb.v1.PurgePlayerResponse\x12Q\n" +
 	"\fCreateBackup\x12\x1f.leonsdb.v1.CreateBackupRequest\x1a .leonsdb.v1.CreateBackupResponse\x12N\n" +
-	"\vListBackups\x12\x1e.leonsdb.v1.ListBackupsRequest\x1a\x1f.leonsdb.v1.ListBackupsResponseBl\n" +
+	"\vListBackups\x12\x1e.leonsdb.v1.ListBackupsRequest\x1a\x1f.leonsdb.v1.ListBackupsResponse\x12Z\n" +
+	"\x0fGetBackupStatus\x12\".leonsdb.v1.GetBackupStatusRequest\x1a#.leonsdb.v1.GetBackupStatusResponseBl\n" +
 	"\x14com.leonsdb.proto.v1B\n" +
 	"AdminProtoP\x01ZFgithub.com/Leoon-X/leonsdb-connector/proto/gen/go/leonsdb/v1;leonsdbv1b\x06proto3"
 
@@ -1041,53 +1317,59 @@ func file_leonsdb_v1_admin_proto_rawDescGZIP() []byte {
 }
 
 var file_leonsdb_v1_admin_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_leonsdb_v1_admin_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_leonsdb_v1_admin_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_leonsdb_v1_admin_proto_goTypes = []any{
-	(Role)(0),                    // 0: leonsdb.v1.Role
-	(Access)(0),                  // 1: leonsdb.v1.Access
-	(*PurgePlayerRequest)(nil),   // 2: leonsdb.v1.PurgePlayerRequest
-	(*PurgePlayerResponse)(nil),  // 3: leonsdb.v1.PurgePlayerResponse
-	(*CreateBackupRequest)(nil),  // 4: leonsdb.v1.CreateBackupRequest
-	(*CreateBackupResponse)(nil), // 5: leonsdb.v1.CreateBackupResponse
-	(*ListBackupsRequest)(nil),   // 6: leonsdb.v1.ListBackupsRequest
-	(*ListBackupsResponse)(nil),  // 7: leonsdb.v1.ListBackupsResponse
-	(*Backup)(nil),               // 8: leonsdb.v1.Backup
-	(*Grant)(nil),                // 9: leonsdb.v1.Grant
-	(*Token)(nil),                // 10: leonsdb.v1.Token
-	(*CreateTokenRequest)(nil),   // 11: leonsdb.v1.CreateTokenRequest
-	(*CreateTokenResponse)(nil),  // 12: leonsdb.v1.CreateTokenResponse
-	(*ListTokensRequest)(nil),    // 13: leonsdb.v1.ListTokensRequest
-	(*ListTokensResponse)(nil),   // 14: leonsdb.v1.ListTokensResponse
-	(*RevokeTokenRequest)(nil),   // 15: leonsdb.v1.RevokeTokenRequest
-	(*RevokeTokenResponse)(nil),  // 16: leonsdb.v1.RevokeTokenResponse
+	(Role)(0),                       // 0: leonsdb.v1.Role
+	(Access)(0),                     // 1: leonsdb.v1.Access
+	(*PurgePlayerRequest)(nil),      // 2: leonsdb.v1.PurgePlayerRequest
+	(*PurgePlayerResponse)(nil),     // 3: leonsdb.v1.PurgePlayerResponse
+	(*CreateBackupRequest)(nil),     // 4: leonsdb.v1.CreateBackupRequest
+	(*CreateBackupResponse)(nil),    // 5: leonsdb.v1.CreateBackupResponse
+	(*ListBackupsRequest)(nil),      // 6: leonsdb.v1.ListBackupsRequest
+	(*ListBackupsResponse)(nil),     // 7: leonsdb.v1.ListBackupsResponse
+	(*GetBackupStatusRequest)(nil),  // 8: leonsdb.v1.GetBackupStatusRequest
+	(*GetBackupStatusResponse)(nil), // 9: leonsdb.v1.GetBackupStatusResponse
+	(*BackupStatus)(nil),            // 10: leonsdb.v1.BackupStatus
+	(*Backup)(nil),                  // 11: leonsdb.v1.Backup
+	(*Grant)(nil),                   // 12: leonsdb.v1.Grant
+	(*Token)(nil),                   // 13: leonsdb.v1.Token
+	(*CreateTokenRequest)(nil),      // 14: leonsdb.v1.CreateTokenRequest
+	(*CreateTokenResponse)(nil),     // 15: leonsdb.v1.CreateTokenResponse
+	(*ListTokensRequest)(nil),       // 16: leonsdb.v1.ListTokensRequest
+	(*ListTokensResponse)(nil),      // 17: leonsdb.v1.ListTokensResponse
+	(*RevokeTokenRequest)(nil),      // 18: leonsdb.v1.RevokeTokenRequest
+	(*RevokeTokenResponse)(nil),     // 19: leonsdb.v1.RevokeTokenResponse
 }
 var file_leonsdb_v1_admin_proto_depIdxs = []int32{
-	8,  // 0: leonsdb.v1.CreateBackupResponse.backup:type_name -> leonsdb.v1.Backup
-	8,  // 1: leonsdb.v1.ListBackupsResponse.backups:type_name -> leonsdb.v1.Backup
-	1,  // 2: leonsdb.v1.Grant.access:type_name -> leonsdb.v1.Access
-	0,  // 3: leonsdb.v1.Token.role:type_name -> leonsdb.v1.Role
-	9,  // 4: leonsdb.v1.Token.grants:type_name -> leonsdb.v1.Grant
-	0,  // 5: leonsdb.v1.CreateTokenRequest.role:type_name -> leonsdb.v1.Role
-	9,  // 6: leonsdb.v1.CreateTokenRequest.grants:type_name -> leonsdb.v1.Grant
-	10, // 7: leonsdb.v1.CreateTokenResponse.token:type_name -> leonsdb.v1.Token
-	10, // 8: leonsdb.v1.ListTokensResponse.tokens:type_name -> leonsdb.v1.Token
-	11, // 9: leonsdb.v1.AdminService.CreateToken:input_type -> leonsdb.v1.CreateTokenRequest
-	13, // 10: leonsdb.v1.AdminService.ListTokens:input_type -> leonsdb.v1.ListTokensRequest
-	15, // 11: leonsdb.v1.AdminService.RevokeToken:input_type -> leonsdb.v1.RevokeTokenRequest
-	2,  // 12: leonsdb.v1.AdminService.PurgePlayer:input_type -> leonsdb.v1.PurgePlayerRequest
-	4,  // 13: leonsdb.v1.AdminService.CreateBackup:input_type -> leonsdb.v1.CreateBackupRequest
-	6,  // 14: leonsdb.v1.AdminService.ListBackups:input_type -> leonsdb.v1.ListBackupsRequest
-	12, // 15: leonsdb.v1.AdminService.CreateToken:output_type -> leonsdb.v1.CreateTokenResponse
-	14, // 16: leonsdb.v1.AdminService.ListTokens:output_type -> leonsdb.v1.ListTokensResponse
-	16, // 17: leonsdb.v1.AdminService.RevokeToken:output_type -> leonsdb.v1.RevokeTokenResponse
-	3,  // 18: leonsdb.v1.AdminService.PurgePlayer:output_type -> leonsdb.v1.PurgePlayerResponse
-	5,  // 19: leonsdb.v1.AdminService.CreateBackup:output_type -> leonsdb.v1.CreateBackupResponse
-	7,  // 20: leonsdb.v1.AdminService.ListBackups:output_type -> leonsdb.v1.ListBackupsResponse
-	15, // [15:21] is the sub-list for method output_type
-	9,  // [9:15] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	11, // 0: leonsdb.v1.CreateBackupResponse.backup:type_name -> leonsdb.v1.Backup
+	11, // 1: leonsdb.v1.ListBackupsResponse.backups:type_name -> leonsdb.v1.Backup
+	10, // 2: leonsdb.v1.GetBackupStatusResponse.status:type_name -> leonsdb.v1.BackupStatus
+	1,  // 3: leonsdb.v1.Grant.access:type_name -> leonsdb.v1.Access
+	0,  // 4: leonsdb.v1.Token.role:type_name -> leonsdb.v1.Role
+	12, // 5: leonsdb.v1.Token.grants:type_name -> leonsdb.v1.Grant
+	0,  // 6: leonsdb.v1.CreateTokenRequest.role:type_name -> leonsdb.v1.Role
+	12, // 7: leonsdb.v1.CreateTokenRequest.grants:type_name -> leonsdb.v1.Grant
+	13, // 8: leonsdb.v1.CreateTokenResponse.token:type_name -> leonsdb.v1.Token
+	13, // 9: leonsdb.v1.ListTokensResponse.tokens:type_name -> leonsdb.v1.Token
+	14, // 10: leonsdb.v1.AdminService.CreateToken:input_type -> leonsdb.v1.CreateTokenRequest
+	16, // 11: leonsdb.v1.AdminService.ListTokens:input_type -> leonsdb.v1.ListTokensRequest
+	18, // 12: leonsdb.v1.AdminService.RevokeToken:input_type -> leonsdb.v1.RevokeTokenRequest
+	2,  // 13: leonsdb.v1.AdminService.PurgePlayer:input_type -> leonsdb.v1.PurgePlayerRequest
+	4,  // 14: leonsdb.v1.AdminService.CreateBackup:input_type -> leonsdb.v1.CreateBackupRequest
+	6,  // 15: leonsdb.v1.AdminService.ListBackups:input_type -> leonsdb.v1.ListBackupsRequest
+	8,  // 16: leonsdb.v1.AdminService.GetBackupStatus:input_type -> leonsdb.v1.GetBackupStatusRequest
+	15, // 17: leonsdb.v1.AdminService.CreateToken:output_type -> leonsdb.v1.CreateTokenResponse
+	17, // 18: leonsdb.v1.AdminService.ListTokens:output_type -> leonsdb.v1.ListTokensResponse
+	19, // 19: leonsdb.v1.AdminService.RevokeToken:output_type -> leonsdb.v1.RevokeTokenResponse
+	3,  // 20: leonsdb.v1.AdminService.PurgePlayer:output_type -> leonsdb.v1.PurgePlayerResponse
+	5,  // 21: leonsdb.v1.AdminService.CreateBackup:output_type -> leonsdb.v1.CreateBackupResponse
+	7,  // 22: leonsdb.v1.AdminService.ListBackups:output_type -> leonsdb.v1.ListBackupsResponse
+	9,  // 23: leonsdb.v1.AdminService.GetBackupStatus:output_type -> leonsdb.v1.GetBackupStatusResponse
+	17, // [17:24] is the sub-list for method output_type
+	10, // [10:17] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_leonsdb_v1_admin_proto_init() }
@@ -1101,7 +1383,7 @@ func file_leonsdb_v1_admin_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_leonsdb_v1_admin_proto_rawDesc), len(file_leonsdb_v1_admin_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   15,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

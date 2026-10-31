@@ -34,6 +34,10 @@ service AdminService {
 
   // ListBackups lists the stored backups, newest first.
   rpc ListBackups(ListBackupsRequest) returns (ListBackupsResponse);
+
+  // GetBackupStatus tells how backups are set up, whether one is running,
+  // and how the last ones went.
+  rpc GetBackupStatus(GetBackupStatusRequest) returns (GetBackupStatusResponse);
 }
 
 message PurgePlayerRequest {
@@ -59,6 +63,42 @@ message ListBackupsRequest {}
 
 message ListBackupsResponse {
   repeated Backup backups = 1;
+}
+
+message GetBackupStatusRequest {}
+
+message GetBackupStatusResponse {
+  BackupStatus status = 1;
+}
+
+// BackupStatus is the state of the backups. Times are milliseconds since
+// the Unix epoch, 0 when there is none. The failures are kept in memory
+// only: a restart forgets them.
+message BackupStatus {
+  // False when backups.dir is not set: no backups are made.
+  bool configured = 1;
+  // Where backups are stored on the server's machine.
+  string dir = 2;
+  // How often a backup is made automatically.
+  uint32 interval_hours = 3;
+  // How many backups are kept.
+  uint32 keep = 4;
+  bool encrypted = 5;
+  // Backups are also uploaded to S3-compatible storage.
+  bool upload = 6;
+  // When the backup running now started; 0 when none is running.
+  int64 running_since = 7;
+  // When the next automatic backup is due.
+  int64 next_at = 8;
+  // The newest backup that was made (also after a restart, from the files).
+  int64 last_success_at = 9;
+  string last_success_name = 10;
+  // The last backup that failed, and why.
+  int64 last_failure_at = 11;
+  string last_failure = 12;
+  // The last upload that failed, and why; the backup itself was made.
+  int64 last_upload_failure_at = 13;
+  string last_upload_failure = 14;
 }
 
 message Backup {
@@ -121,6 +161,10 @@ message Token {
   repeated Grant grants = 5;
   // Requests per second allowed from each client address; 0 means no limit.
   uint32 rate_limit = 6;
+  // When the token was last used, in milliseconds since the Unix epoch; 0
+  // if it has not been used since the server began recording it. It is
+  // saved once a minute, so after a restart it can be up to a minute early.
+  int64 last_used_at = 7;
 }
 
 message CreateTokenRequest {

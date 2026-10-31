@@ -133,6 +133,11 @@ func (p *Pool) put(c *poolConn, broken bool) {
 
 // Invoke makes a unary call. It implements grpc.ClientConnInterface.
 func (p *Pool) Invoke(ctx context.Context, method string, args, reply any, opts ...grpc.CallOption) error {
+	// A context that already ended fails the call before it is sent:
+	// otherwise a fast answer could beat the deadline call sets.
+	if err := ctx.Err(); err != nil {
+		return status.FromContextError(err).Err()
+	}
 	timeout, err := requestTimeout(ctx)
 	if err != nil {
 		return err

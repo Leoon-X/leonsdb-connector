@@ -22,12 +22,13 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AdminService_CreateToken_FullMethodName  = "/leonsdb.v1.AdminService/CreateToken"
-	AdminService_ListTokens_FullMethodName   = "/leonsdb.v1.AdminService/ListTokens"
-	AdminService_RevokeToken_FullMethodName  = "/leonsdb.v1.AdminService/RevokeToken"
-	AdminService_PurgePlayer_FullMethodName  = "/leonsdb.v1.AdminService/PurgePlayer"
-	AdminService_CreateBackup_FullMethodName = "/leonsdb.v1.AdminService/CreateBackup"
-	AdminService_ListBackups_FullMethodName  = "/leonsdb.v1.AdminService/ListBackups"
+	AdminService_CreateToken_FullMethodName     = "/leonsdb.v1.AdminService/CreateToken"
+	AdminService_ListTokens_FullMethodName      = "/leonsdb.v1.AdminService/ListTokens"
+	AdminService_RevokeToken_FullMethodName     = "/leonsdb.v1.AdminService/RevokeToken"
+	AdminService_PurgePlayer_FullMethodName     = "/leonsdb.v1.AdminService/PurgePlayer"
+	AdminService_CreateBackup_FullMethodName    = "/leonsdb.v1.AdminService/CreateBackup"
+	AdminService_ListBackups_FullMethodName     = "/leonsdb.v1.AdminService/ListBackups"
+	AdminService_GetBackupStatus_FullMethodName = "/leonsdb.v1.AdminService/GetBackupStatus"
 )
 
 // AdminServiceClient is the client API for AdminService service.
@@ -53,6 +54,9 @@ type AdminServiceClient interface {
 	CreateBackup(ctx context.Context, in *CreateBackupRequest, opts ...grpc.CallOption) (*CreateBackupResponse, error)
 	// ListBackups lists the stored backups, newest first.
 	ListBackups(ctx context.Context, in *ListBackupsRequest, opts ...grpc.CallOption) (*ListBackupsResponse, error)
+	// GetBackupStatus tells how backups are set up, whether one is running,
+	// and how the last ones went.
+	GetBackupStatus(ctx context.Context, in *GetBackupStatusRequest, opts ...grpc.CallOption) (*GetBackupStatusResponse, error)
 }
 
 type adminServiceClient struct {
@@ -123,6 +127,16 @@ func (c *adminServiceClient) ListBackups(ctx context.Context, in *ListBackupsReq
 	return out, nil
 }
 
+func (c *adminServiceClient) GetBackupStatus(ctx context.Context, in *GetBackupStatusRequest, opts ...grpc.CallOption) (*GetBackupStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetBackupStatusResponse)
+	err := c.cc.Invoke(ctx, AdminService_GetBackupStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AdminServiceServer is the server API for AdminService service.
 // All implementations must embed UnimplementedAdminServiceServer
 // for forward compatibility.
@@ -146,6 +160,9 @@ type AdminServiceServer interface {
 	CreateBackup(context.Context, *CreateBackupRequest) (*CreateBackupResponse, error)
 	// ListBackups lists the stored backups, newest first.
 	ListBackups(context.Context, *ListBackupsRequest) (*ListBackupsResponse, error)
+	// GetBackupStatus tells how backups are set up, whether one is running,
+	// and how the last ones went.
+	GetBackupStatus(context.Context, *GetBackupStatusRequest) (*GetBackupStatusResponse, error)
 	mustEmbedUnimplementedAdminServiceServer()
 }
 
@@ -173,6 +190,9 @@ func (UnimplementedAdminServiceServer) CreateBackup(context.Context, *CreateBack
 }
 func (UnimplementedAdminServiceServer) ListBackups(context.Context, *ListBackupsRequest) (*ListBackupsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListBackups not implemented")
+}
+func (UnimplementedAdminServiceServer) GetBackupStatus(context.Context, *GetBackupStatusRequest) (*GetBackupStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetBackupStatus not implemented")
 }
 func (UnimplementedAdminServiceServer) mustEmbedUnimplementedAdminServiceServer() {}
 func (UnimplementedAdminServiceServer) testEmbeddedByValue()                      {}
@@ -303,6 +323,24 @@ func _AdminService_ListBackups_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AdminService_GetBackupStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBackupStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).GetBackupStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_GetBackupStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).GetBackupStatus(ctx, req.(*GetBackupStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AdminService_ServiceDesc is the grpc.ServiceDesc for AdminService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -333,6 +371,10 @@ var AdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListBackups",
 			Handler:    _AdminService_ListBackups_Handler,
+		},
+		{
+			MethodName: "GetBackupStatus",
+			Handler:    _AdminService_GetBackupStatus_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

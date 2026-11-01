@@ -99,6 +99,10 @@ message BackupStatus {
   // The last upload that failed, and why; the backup itself was made.
   int64 last_upload_failure_at = 13;
   string last_upload_failure = 14;
+  // Since when backups are overdue: no backup was made for the interval
+  // plus an hour (counted from the start when there is none yet). 0 when
+  // they are not.
+  int64 overdue_since = 15;
 }
 
 message Backup {

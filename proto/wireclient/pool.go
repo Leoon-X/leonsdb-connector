@@ -131,8 +131,18 @@ func (p *Pool) put(c *poolConn, broken bool) {
 	p.free <- c
 }
 
+// cutCall stops a call's reading and writing once its context ended. It
+// runs on a goroutine of its own, maybe late; tests replace it to make it
+// late on purpose.
+var cutCall = func(nc net.Conn) { _ = nc.SetDeadline(time.Now()) }
+
 // Invoke makes a unary call. It implements grpc.ClientConnInterface.
 func (p *Pool) Invoke(ctx context.Context, method string, args, reply any, opts ...grpc.CallOption) error {
+	// A context that already ended fails the call before it is sent:
+	// otherwise a fast answer could beat the deadline call sets.
+	if err := ctx.Err(); err != nil {
+		return status.FromContextError(err).Err()
+	}
 	timeout, err := requestTimeout(ctx)
 	if err != nil {
 		return err
@@ -172,7 +182,7 @@ func (c *poolConn) call(ctx context.Context, method string, timeout uint32, args
 		defer func() { _ = c.nc.SetDeadline(time.Time{}) }()
 	}
 	if ctx.Done() != nil {
-		stop := context.AfterFunc(ctx, func() { _ = c.nc.SetDeadline(time.Now()) })
+		stop := context.AfterFunc(ctx, func() { cutCall(c.nc) })
 		defer func() {
 			if !stop() {
 				broken = true // its deadline was moved, or is about to be

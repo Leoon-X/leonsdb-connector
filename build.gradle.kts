@@ -26,7 +26,14 @@ licenseReport {
 // Settings shared by every connector module.
 subprojects {
     group = "com.leonsdb"
-    version = "0.1.0-SNAPSHOT"
+    // A release sets it: ./gradlew -PleonsdbVersion=1.2.3
+    version = providers.gradleProperty("leonsdbVersion").getOrElse("0.1.0-SNAPSHOT")
+
+    // The same sources give the same jars: releases are checked for it.
+    tasks.withType<AbstractArchiveTask>().configureEach {
+        isPreserveFileTimestamps = false
+        isReproducibleFileOrder = true
+    }
 
     apply(plugin = "java-library")
 

@@ -518,8 +518,12 @@ type BackupStatus struct {
 	// The last upload that failed, and why; the backup itself was made.
 	LastUploadFailureAt int64  `protobuf:"varint,13,opt,name=last_upload_failure_at,json=lastUploadFailureAt,proto3" json:"last_upload_failure_at,omitempty"`
 	LastUploadFailure   string `protobuf:"bytes,14,opt,name=last_upload_failure,json=lastUploadFailure,proto3" json:"last_upload_failure,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// Since when backups are overdue: no backup was made for the interval
+	// plus an hour (counted from the start when there is none yet). 0 when
+	// they are not.
+	OverdueSince  int64 `protobuf:"varint,15,opt,name=overdue_since,json=overdueSince,proto3" json:"overdue_since,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *BackupStatus) Reset() {
@@ -648,6 +652,13 @@ func (x *BackupStatus) GetLastUploadFailure() string {
 		return x.LastUploadFailure
 	}
 	return ""
+}
+
+func (x *BackupStatus) GetOverdueSince() int64 {
+	if x != nil {
+		return x.OverdueSince
+	}
+	return 0
 }
 
 type Backup struct {
@@ -1217,7 +1228,7 @@ const file_leonsdb_v1_admin_proto_rawDesc = "" +
 	"\abackups\x18\x01 \x03(\v2\x12.leonsdb.v1.BackupR\abackups\"\x18\n" +
 	"\x16GetBackupStatusRequest\"K\n" +
 	"\x17GetBackupStatusResponse\x120\n" +
-	"\x06status\x18\x01 \x01(\v2\x18.leonsdb.v1.BackupStatusR\x06status\"\xf3\x03\n" +
+	"\x06status\x18\x01 \x01(\v2\x18.leonsdb.v1.BackupStatusR\x06status\"\x98\x04\n" +
 	"\fBackupStatus\x12\x1e\n" +
 	"\n" +
 	"configured\x18\x01 \x01(\bR\n" +
@@ -1235,7 +1246,8 @@ const file_leonsdb_v1_admin_proto_rawDesc = "" +
 	"\x0flast_failure_at\x18\v \x01(\x03R\rlastFailureAt\x12!\n" +
 	"\flast_failure\x18\f \x01(\tR\vlastFailure\x123\n" +
 	"\x16last_upload_failure_at\x18\r \x01(\x03R\x13lastUploadFailureAt\x12.\n" +
-	"\x13last_upload_failure\x18\x0e \x01(\tR\x11lastUploadFailure\"\x96\x01\n" +
+	"\x13last_upload_failure\x18\x0e \x01(\tR\x11lastUploadFailure\x12#\n" +
+	"\roverdue_since\x18\x0f \x01(\x03R\foverdueSince\"\x96\x01\n" +
 	"\x06Backup\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1d\n" +
 	"\n" +

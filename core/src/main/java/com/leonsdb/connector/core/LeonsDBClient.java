@@ -398,7 +398,6 @@ public final class LeonsDBClient implements AutoCloseable {
      * @param holderName this server's name
      * @param waitMillis how long to wait for the player to be free
      * @param load       collections as "namespace.collection"
-     * @param playerName the player's name, or null
      * @return the epoch and the records that exist
      */
     public CompletableFuture<AcquireLeaseResponse> takeBackLease(ByteString player, String holderId, String holderName,

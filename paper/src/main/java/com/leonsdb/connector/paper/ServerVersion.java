@@ -52,8 +52,13 @@ public final class ServerVersion {
         Integer reported = reportedDataVersion();
         int dataVersion = reported != null ? reported : knownDataVersion(v[0], v[1], v[2]);
         boolean folia = classExists("io.papermc.paper.threadedregions.RegionizedServer");
+        // Everything the platform for region schedulers calls, so it is never
+        // chosen on a build that has only part of it.
         boolean regions = classExists("io.papermc.paper.threadedregions.scheduler.GlobalRegionScheduler")
-                && hasMethod(Bukkit.class, "isGlobalTickThread")
+                && hasMethod(Bukkit.class, "getGlobalRegionScheduler")
+                && hasMethod(Bukkit.class, "isOwnedByCurrentRegion", org.bukkit.entity.Entity.class)
+                && hasMethod(org.bukkit.entity.Entity.class, "getScheduler")
+                && classExists("net.kyori.adventure.text.Component")
                 && javaFeatureVersion() >= 17;
         return new ServerVersion(Bukkit.getName() + " " + bukkitVersion, v[0], v[1], v[2], dataVersion, folia, regions);
     }

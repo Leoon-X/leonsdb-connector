@@ -31,6 +31,9 @@ public final class RegionPlatform implements ServerPlatform {
     // Paper's idle-time task queue, once checked; null means the scheduler.
     private volatile Executor idle;
     private volatile String how;
+    // Bukkit.isGlobalTickThread: Folia has it, and Paper from late 1.21 builds.
+    // On Paper without it, the global region is the main thread.
+    private final boolean globalTickCheck;
 
     /**
      * Creates the platform; fails if this server has no region schedulers.
@@ -41,6 +44,14 @@ public final class RegionPlatform implements ServerPlatform {
         this.plugin = plugin;
         this.how = isFolia() ? "Folia region schedulers" : "Paper region schedulers";
         Bukkit.getGlobalRegionScheduler(); // fails here, not later, where there are none
+        boolean check;
+        try {
+            Bukkit.class.getMethod("isGlobalTickThread");
+            check = true;
+        } catch (NoSuchMethodException e) {
+            check = false;
+        }
+        this.globalTickCheck = check;
     }
 
     @Override
@@ -96,7 +107,7 @@ public final class RegionPlatform implements ServerPlatform {
 
     @Override
     public boolean isMainThread() {
-        return Bukkit.isGlobalTickThread();
+        return globalTickThread();
     }
 
     @Override
@@ -116,7 +127,7 @@ public final class RegionPlatform implements ServerPlatform {
     @Override
     public boolean isPlayerThread(UUID uuid) {
         Player player = Bukkit.getPlayer(uuid);
-        return player == null ? Bukkit.isGlobalTickThread() : Bukkit.isOwnedByCurrentRegion(player);
+        return player == null ? globalTickThread() : Bukkit.isOwnedByCurrentRegion(player);
     }
 
     @Override
@@ -161,5 +172,9 @@ public final class RegionPlatform implements ServerPlatform {
 
     private static long ticks(Duration delay) {
         return Math.max(0, (delay.toMillis() + 49) / 50);
+    }
+
+    private boolean globalTickThread() {
+        return globalTickCheck ? Bukkit.isGlobalTickThread() : Bukkit.isPrimaryThread();
     }
 }

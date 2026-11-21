@@ -1,7 +1,33 @@
 # Using LeonsDB in your plugin
 
-This guide shows how a Paper plugin stores its data in LeonsDB. A complete
+This guide shows how a plugin stores its data in LeonsDB. A complete
 working example is in `connector/example` in the repository.
+
+## Supported servers
+
+The LeonsDB plugin is one jar for every server: Bukkit, Spigot, Paper and
+Folia, Minecraft 1.8 to the newest, on the Java version each one needs
+(Java 8 and later). A network can mix them, for example a 1.8 lobby with
+1.21 game servers. At startup the plugin logs what it uses on that server:
+
+```
+Running on Paper 1.21.11-R0.1-SNAPSHOT (data version 4671, Java 21): Paper region schedulers, ...; items stored as Paper NBT
+```
+
+| Server | Player data is touched on | Items are stored as |
+|---|---|---|
+| Paper and Folia 1.19.4 and later | Paper's region schedulers (on Folia, the player's region thread) | Paper's NBT format |
+| Paper 1.16 to 1.19.3 | the main thread, through the Bukkit scheduler | Paper's NBT format |
+| Paper 1.13 to 1.15, Spigot 1.13 and later | the main thread, through the Bukkit scheduler | Bukkit's YAML |
+| Every server on 1.8 to 1.12 | the main thread, through the Bukkit scheduler | NBT |
+
+From 1.14, servers without region schedulers also save players for a
+server switch as soon as the main thread is idle, as Paper does (see
+"A player switches servers" below).
+
+The LeonsDB API is the same everywhere, and it only uses Java 8, so your
+plugin can target the oldest server you run. Your own code must still only
+call the Bukkit API that your oldest server has.
 
 ## Setup
 
@@ -337,10 +363,30 @@ history.rollback(bob, Kit.class, tenMinutesAgo).onlyFields("items").apply();
 | `String`, `UUID`, `Instant`, `byte[]` | |
 | Enums | Stored by name. |
 | `List<T>`, `Map<String, T>` | Of any supported type, nested as you like. Elements must not be null. |
-| `ItemStack`, `ItemStack[]`, `Location` | Items use Paper's own format and are upgraded automatically when Minecraft updates. |
+| `ItemStack`, `ItemStack[]`, `Location` | Items are stored with the Minecraft version that saved them and are upgraded when a newer version loads them (see [Items across versions](#items-across-versions)). |
 
 `float`, `short`, `byte` and `char` are not supported; use `double`, `int`
 or `String`. A null field is stored as "no value".
+
+### Items across versions
+
+Every item is stored with the data version of the server that saved it.
+A server loads items saved by its own Minecraft version or an older one,
+and upgrades them (Paper runs them through Mojang's data fixers; on Spigot
+and older versions, Bukkit converts them).
+
+A server never loads an item saved by a **newer** Minecraft version, nor
+an item in a format it cannot read (Spigot 1.13+ cannot read NBT). It
+cannot turn such an item back into an older one without losing parts of
+it, so it leaves the whole field alone: on that server your plugin sees the
+field's default value (`null` for an `ItemStack` or `ItemStack[]`), the
+plugin logs which fields it left alone, and the server never saves over
+them. The item stays intact for the servers that can load it. The rest of
+the record (numbers, text, other fields) is loaded and saved as usual.
+
+So in a network that mixes versions, keep items that must go everywhere in
+fields that only the oldest version writes, or accept that a newer item is
+only seen on servers of its version and newer.
 
 ## Changing your data classes
 

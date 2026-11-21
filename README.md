@@ -3,9 +3,10 @@
 The open-source client side of [LeonsDB](https://leonsdb.com), the database
 built for Minecraft networks:
 
-- **Connector** (Java 21): the library and the Paper plugin (which also runs
-  on Folia) that let Minecraft plugins keep player and global data in
-  LeonsDB with plain Java classes.
+- **Connector**: the library and the server plugin that let Minecraft
+  plugins keep player and global data in LeonsDB with plain Java classes.
+  One jar runs on Bukkit, Spigot, Paper and Folia, on every Minecraft
+  version from 1.8 to the newest (Java 8 and later).
   See [docs/plugin-developers.md](docs/plugin-developers.md).
 - **Velocity plugin**: tells LeonsDB which server a player is about to join,
   so server switches wait less. It holds no player data.
@@ -23,7 +24,7 @@ and is distributed as compiled builds from [leonsdb.com](https://leonsdb.com).
 |---|---|
 | `api/` | The API plugins compile against (`@PlayerData`, `LeonsDB`, …) |
 | `core/` | Networking, caching and write merging, platform-independent |
-| `paper/` | The Paper plugin, which also runs on Folia |
+| `paper/` | The server plugin: Bukkit, Spigot, Paper and Folia, 1.8 to the newest |
 | `velocity/` | The Velocity plugin (switch hints) |
 | `protocol/` | Java classes generated from `proto/` |
 | `example/` | An example plugin |

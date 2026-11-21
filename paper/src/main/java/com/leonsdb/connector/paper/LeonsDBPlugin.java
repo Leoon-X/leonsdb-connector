@@ -176,7 +176,7 @@ public final class LeonsDBPlugin extends JavaPlugin implements Listener {
 
     /**
      * Listens for Paper's PlayerConnectionCloseEvent where the server has it
-     * (Paper 1.12 and later); elsewhere a login that ends before the player
+     * (Paper 1.13 and later); elsewhere a login that ends before the player
      * joins is released by {@link #cleanUpAbandonedLogins}.
      *
      * @return whether the event is listened to

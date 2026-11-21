@@ -10,7 +10,7 @@ import org.bukkit.plugin.Plugin;
 /**
  * The connector's view of the server it runs on, with what the plugin needs
  * on top of {@link Platform}. There are two: one for servers with region
- * schedulers (Paper and Folia 1.19.4 and later), built for Java 17, and one
+ * schedulers (Paper 1.20 and later, and Folia), built for Java 17, and one
  * for every other server (Bukkit and Spigot of any version, older Paper),
  * which uses the Bukkit scheduler.
  *

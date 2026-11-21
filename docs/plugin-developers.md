@@ -11,13 +11,13 @@ Folia, Minecraft 1.8 to the newest, on the Java version each one needs
 1.21 game servers. At startup the plugin logs what it uses on that server:
 
 ```
-Running on Paper 1.21.11-R0.1-SNAPSHOT (data version 4671, Java 21): Paper region schedulers, ...; items stored as Paper NBT
+Running on Paper 1.21.11-R0.1-SNAPSHOT (data version 4671, Java 21): Paper region schedulers; items stored as Paper NBT
 ```
 
 | Server | Player data is touched on | Items are stored as |
 |---|---|---|
-| Paper and Folia 1.19.4 and later | Paper's region schedulers (on Folia, the player's region thread) | Paper's NBT format |
-| Paper 1.16 to 1.19.3 | the main thread, through the Bukkit scheduler | Paper's NBT format |
+| Paper and Folia 1.20 and later | Paper's region schedulers (on Folia, the player's region thread) | Paper's NBT format |
+| Paper 1.16 to 1.19 | the main thread, through the Bukkit scheduler | Paper's NBT format |
 | Paper 1.13 to 1.15, Spigot 1.13 and later | the main thread, through the Bukkit scheduler | Bukkit's YAML |
 | Every server on 1.8 to 1.12 | the main thread, through the Bukkit scheduler | NBT |
 

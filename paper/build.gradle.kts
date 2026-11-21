@@ -11,7 +11,7 @@
 //   connection close event, the idle-time task queue) is looked up when the
 //   server starts.
 // - The "modern" source set (package ...paper.modern) uses the region
-//   schedulers of Paper and Folia 1.19.4+. It is built for Java 17 against
+//   schedulers of Paper and Folia (1.20+). It is built for Java 17 against
 //   the oldest Folia API, and only loaded on servers that have them.
 import java.io.DataInputStream
 import java.util.zip.ZipFile

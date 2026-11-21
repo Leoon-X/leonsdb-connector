@@ -14,7 +14,7 @@ import org.bukkit.plugin.Plugin;
 
 /**
  * The connector's view of a server without region schedulers: Bukkit and
- * Spigot of any version from 1.8, and Paper before 1.19.4. One main thread
+ * Spigot of any version from 1.8, and Paper before 1.20. One main thread
  * runs the game and touches all players' data, through the Bukkit
  * scheduler. From 1.14, players' data is saved for server switches from the
  * idle-time task queue when it works (see {@link IdleQueue}), as on Paper.

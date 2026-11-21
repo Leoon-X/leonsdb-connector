@@ -184,7 +184,7 @@ public final class ServerVersion {
         return folia;
     }
 
-    /** @return whether Paper's region schedulers can be used (Paper and Folia 1.19.4+, on Java 17+) */
+    /** @return whether Paper's region schedulers can be used (Paper 1.20+ and Folia, on Java 17+) */
     public boolean hasRegionSchedulers() {
         return regionSchedulers;
     }

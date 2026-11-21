@@ -17,7 +17,7 @@ import org.bukkit.plugin.Plugin;
 
 /**
  * The connector's view of a Paper or Folia server with region schedulers
- * (1.19.4 and later). Paper has them too: there they all run on the main
+ * (Paper 1.20 and later). Paper has them too: there they all run on the main
  * thread, so Paper behaves as it always did, and on Folia each player's data
  * is touched on the thread of the region the player is in.
  *

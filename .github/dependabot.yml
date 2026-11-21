@@ -13,6 +13,11 @@ updates:
       # against the 1.21 API at Java 21 so one jar runs on 1.21.x and 26.x.
       - dependency-name: io.papermc.paper:paper-api
         versions: [">= 26"]
+      # The oldest APIs the Paper plugin supports, pinned on purpose (see
+      # gradle/libs.versions.toml): newer ones would let it call methods that
+      # older servers do not have.
+      - dependency-name: org.spigotmc:spigot-api
+      - dependency-name: dev.folia:folia-api
     groups:
       java-deps: { patterns: ["*"] }
   - package-ecosystem: gomod

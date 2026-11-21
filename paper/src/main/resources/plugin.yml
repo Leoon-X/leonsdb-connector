@@ -3,7 +3,11 @@
 name: LeonsDB
 version: '${version}'
 main: com.leonsdb.connector.paper.LeonsDBPlugin
-api-version: '1.21'
+# One jar for Minecraft 1.8 to the newest. 1.13 is the oldest api-version
+# there is: servers before 1.13 do not read it, and from 1.13 it says the
+# plugin uses the flattened material names, so the server does not run it
+# in legacy mode.
+api-version: '1.13'
 description: Connects this server to a LeonsDB database.
 website: https://leonsdb.com
 load: STARTUP

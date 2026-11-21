@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 Leoon-X
 
-package com.leonsdb.connector.paper;
+package com.leonsdb.connector.paper.modern;
 
-import com.leonsdb.connector.core.cache.Platform;
+import com.leonsdb.connector.paper.IdleQueue;
+import com.leonsdb.connector.paper.ServerPlatform;
 import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.Executor;
@@ -15,19 +16,43 @@ import org.bukkit.plugin.IllegalPluginAccessException;
 import org.bukkit.plugin.Plugin;
 
 /**
- * The connector's view of a Paper or Folia server. It uses the region
- * schedulers, which Paper has too: there they all run on the main thread,
- * so Paper behaves as it always did, and on Folia each player's data is
- * touched on the thread of the region the player is in.
+ * The connector's view of a Paper or Folia server with region schedulers
+ * (1.19.4 and later). Paper has them too: there they all run on the main
+ * thread, so Paper behaves as it always did, and on Folia each player's data
+ * is touched on the thread of the region the player is in.
+ *
+ * <p>Built for Java 17 against the Folia API, and loaded by
+ * {@link ServerPlatform#create} only on servers that have region schedulers.
+ * Internal to the plugin.
  */
-final class PaperPlatform implements Platform {
+public final class RegionPlatform implements ServerPlatform {
 
     private final Plugin plugin;
     // Paper's idle-time task queue, once checked; null means the scheduler.
     private volatile Executor idle;
+    private volatile String how;
 
-    PaperPlatform(Plugin plugin) {
+    /**
+     * Creates the platform; fails if this server has no region schedulers.
+     *
+     * @param plugin the plugin
+     */
+    public RegionPlatform(Plugin plugin) {
         this.plugin = plugin;
+        this.how = isFolia() ? "Folia region schedulers" : "Paper region schedulers";
+        Bukkit.getGlobalRegionScheduler(); // fails here, not later, where there are none
+    }
+
+    @Override
+    public void repeat(Runnable task, long periodTicks) {
+        // The global region scheduler is the main thread on Paper; on Folia,
+        // flushTick saves each player on the thread of their region.
+        Bukkit.getGlobalRegionScheduler().runAtFixedRate(plugin, t -> task.run(), periodTicks, periodTicks);
+    }
+
+    @Override
+    public String describe() {
+        return how;
     }
 
     /**
@@ -35,7 +60,8 @@ final class PaperPlatform implements Platform {
      * here, and logs once which way is used. Until the check is done (when
      * the server starts ticking), and if it fails, the scheduler is used.
      */
-    void useIdleQueueIfItWorks() {
+    @Override
+    public void start() {
         Logger log = plugin.getLogger();
         String scheduler = "Player data is saved for server switches at the next tick (scheduler): ";
         if (!Boolean.parseBoolean(System.getProperty("leonsdb.idleQueue", "true"))) {
@@ -50,6 +76,7 @@ final class PaperPlatform implements Platform {
         IdleQueue.check(found.executor(), Bukkit::isPrimaryThread, IdleQueue.CHECK_TIMEOUT).thenAccept(works -> {
             if (works) {
                 idle = found.executor();
+                how = "Paper region schedulers, and the idle-time task queue for server switches";
                 log.info("Player data is saved for server switches as soon as the main thread is idle "
                         + "(Paper's idle-time task queue).");
             } else {

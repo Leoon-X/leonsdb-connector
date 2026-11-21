@@ -3,6 +3,7 @@
 
 package com.leonsdb.connector.core.cache;
 
+import com.leonsdb.connector.core.Jdk;
 import com.leonsdb.connector.core.LeonsDBClient;
 import com.leonsdb.connector.core.RequestException;
 import com.leonsdb.connector.core.schema.ClassSchema;
@@ -80,7 +81,7 @@ public final class CachedObject<T> {
         this.schema = schema;
         this.ref = ref;
         this.instance = instance;
-        this.unreadable = Set.copyOf(unreadable);
+        this.unreadable = Jdk.setCopy(unreadable);
         this.base = new HashMap<>(base);
         this.version = version;
         this.client = client;
@@ -91,9 +92,9 @@ public final class CachedObject<T> {
         // record, but no plugin changed them.
         Map<String, Value> loaded;
         try {
-            loaded = schema.hasTransactional() ? Map.copyOf(schema.read(instance)) : Map.of();
+            loaded = schema.hasTransactional() ? Jdk.mapCopy(schema.read(instance)) : java.util.Collections.emptyMap();
         } catch (IllegalArgumentException e) {
-            loaded = Map.copyOf(base);
+            loaded = Jdk.mapCopy(base);
         }
         this.lastChecked = loaded;
     }
@@ -119,7 +120,7 @@ public final class CachedObject<T> {
      * @return an immutable snapshot
      */
     public Map<String, Value> snapshot() {
-        return Map.copyOf(schema.read(instance));
+        return Jdk.mapCopy(schema.read(instance));
     }
 
     /**
@@ -257,7 +258,7 @@ public final class CachedObject<T> {
 
     private void onFailed(Map<String, Value> snapshot, List<Operation> ops, List<CompletableFuture<Void>> waiters,
                           Throwable err, int resyncs) {
-        RequestException re = err instanceof RequestException r ? r : null;
+        RequestException re = err instanceof RequestException ? (RequestException) err : null;
 
         if (re != null && "STALE_EPOCH".equals(re.reason())) {
             // Another server owns this player now. Our changes must not be
@@ -279,7 +280,7 @@ public final class CachedObject<T> {
             client.get(ref).whenComplete((got, getErr) -> {
                 synchronized (this) {
                     if (getErr == null) {
-                        base = got.getFound() ? schema.declaredOnly(got.getRecord().getFieldsMap()) : Map.of();
+                        base = got.getFound() ? schema.declaredOnly(got.getRecord().getFieldsMap()) : java.util.Collections.emptyMap();
                         version = got.getFound() ? got.getRecord().getVersion() : 0;
                     }
                     inFlight = false;
@@ -381,7 +382,7 @@ public final class CachedObject<T> {
 
     /** @return what the server has; stable while reserved */
     synchronized Map<String, Value> base() {
-        return Map.copyOf(base);
+        return Jdk.mapCopy(base);
     }
 
     /** @return the server's version; stable while reserved */
@@ -432,7 +433,7 @@ public final class CachedObject<T> {
      * @param committed whether the transaction changed this record
      */
     void release(boolean committed) {
-        List<CompletableFuture<Void>> failed = List.of();
+        List<CompletableFuture<Void>> failed = java.util.Collections.emptyList();
         RuntimeException snapshotError = null;
         synchronized (this) {
             reserved = false;
@@ -503,7 +504,7 @@ public final class CachedObject<T> {
     }
 
     private static String uuidOf(RecordRef ref) {
-        var b = ref.getPlayer().asReadOnlyByteBuffer();
+        java.nio.ByteBuffer b = ref.getPlayer().asReadOnlyByteBuffer();
         return new java.util.UUID(b.getLong(), b.getLong()).toString();
     }
 

@@ -125,12 +125,12 @@ public final class LeonsDBClient implements AutoCloseable {
      * @return the client
      */
     public static LeonsDBClient connect(ConnectionSettings settings, String clientName) {
-        var eventLoop = new io.grpc.netty.shaded.io.netty.channel.MultiThreadIoEventLoopGroup(2,
+        io.grpc.netty.shaded.io.netty.channel.EventLoopGroup eventLoop = new io.grpc.netty.shaded.io.netty.channel.MultiThreadIoEventLoopGroup(2,
                 new io.grpc.netty.shaded.io.netty.util.concurrent.DefaultThreadFactory("leonsdb-grpc", true),
                 io.grpc.netty.shaded.io.netty.channel.nio.NioIoHandler.newFactory());
-        var callbacks = java.util.concurrent.Executors.newCachedThreadPool(
+        java.util.concurrent.ExecutorService callbacks = java.util.concurrent.Executors.newCachedThreadPool(
                 new io.grpc.netty.shaded.io.netty.util.concurrent.DefaultThreadFactory("leonsdb-grpc-callback", true));
-        var builder = NettyChannelBuilder.forAddress(settings.host(), settings.port())
+        NettyChannelBuilder builder = NettyChannelBuilder.forAddress(settings.host(), settings.port())
                 .eventLoopGroup(eventLoop)
                 .channelType(io.grpc.netty.shaded.io.netty.channel.socket.nio.NioSocketChannel.class)
                 // After close(), a late call fails at once on the caller's thread.
@@ -149,7 +149,7 @@ public final class LeonsDBClient implements AutoCloseable {
         } else {
             builder.usePlaintext();
         }
-        var client = new LeonsDBClient(builder.build(), settings, clientName);
+        LeonsDBClient client = new LeonsDBClient(builder.build(), settings, clientName);
         client.eventLoop = eventLoop;
         client.callbacks = callbacks;
         return client;
@@ -176,7 +176,7 @@ public final class LeonsDBClient implements AutoCloseable {
                 req -> call("Apply", stub().apply(req)),
                 req -> call("ApplyMany", stub().applyMany(req)),
                 outcome -> {
-                    var e = outcome.getError();
+                    com.leonsdb.proto.v1.WriteError e = outcome.getError();
                     Status.Code code = Status.fromCodeValue(e.getCode()).getCode();
                     return new RequestException("LeonsDB Apply at " + settings.host() + ":" + settings.port() + " failed (" + code + ")"
                             + (e.getMessage().isEmpty() ? "" : ": " + e.getMessage()),
@@ -190,16 +190,16 @@ public final class LeonsDBClient implements AutoCloseable {
      * @return the server info, or a failure with {@link IncompatibleServerException}
      */
     public CompletableFuture<ServerInfo> fetchServerInfo() {
-        var request = GetInfoRequest.newBuilder()
+        GetInfoRequest request = GetInfoRequest.newBuilder()
                 .setClientProtocolVersion(PROTOCOL_VERSION)
                 .setClientName(clientName)
                 .build();
-        var stub = ServerServiceGrpc.newFutureStub(channel).withDeadlineAfter(timeoutMillis(), TimeUnit.MILLISECONDS);
+        ServerServiceGrpc.ServerServiceFutureStub stub = ServerServiceGrpc.newFutureStub(channel).withDeadlineAfter(timeoutMillis(), TimeUnit.MILLISECONDS);
         return call("GetInfo", stub.getInfo(request)).thenApply(r -> {
             if (wire != null) {
                 wire.target(settings.host(), r.getWirePort());
             }
-            var info = toServerInfo(r);
+            ServerInfo info = toServerInfo(r);
             if (!info.supports(PROTOCOL_VERSION)) {
                 throw new IncompatibleServerException(info, PROTOCOL_VERSION);
             }
@@ -218,7 +218,7 @@ public final class LeonsDBClient implements AutoCloseable {
      */
     public CompletableFuture<EnsureCollectionResponse> ensureCollection(String namespace, String collection,
                                                                       CollectionKind kind, Schema schema) {
-        var req = EnsureCollectionRequest.newBuilder()
+        EnsureCollectionRequest req = EnsureCollectionRequest.newBuilder()
                 .setNamespace(namespace).setCollection(collection).setKind(kind).setSchema(schema).build();
         return call("EnsureCollection", stub().ensureCollection(req));
     }
@@ -243,7 +243,7 @@ public final class LeonsDBClient implements AutoCloseable {
      * @return the new version and touched fields
      */
     public CompletableFuture<ApplyResponse> apply(RecordRef ref, List<Operation> ops, long epoch, OptionalLong expectedVersion) {
-        var req = ApplyRequest.newBuilder().setRef(ref).addAllOperations(ops).setEpoch(epoch);
+        ApplyRequest.Builder req = ApplyRequest.newBuilder().setRef(ref).addAllOperations(ops).setEpoch(epoch);
         expectedVersion.ifPresent(req::setExpectedVersion);
         return saves.apply(req.build());
     }
@@ -260,7 +260,7 @@ public final class LeonsDBClient implements AutoCloseable {
      * @return the new version, without fields
      */
     public CompletableFuture<ApplyResponse> save(RecordRef ref, List<Operation> ops, long epoch, OptionalLong expectedVersion) {
-        var req = ApplyRequest.newBuilder().setRef(ref).addAllOperations(ops).setEpoch(epoch).setOmitFields(true);
+        ApplyRequest.Builder req = ApplyRequest.newBuilder().setRef(ref).addAllOperations(ops).setEpoch(epoch).setOmitFields(true);
         expectedVersion.ifPresent(req::setExpectedVersion);
         return saves.apply(req.build());
     }
@@ -328,7 +328,7 @@ public final class LeonsDBClient implements AutoCloseable {
      * @return the epoch to write with
      */
     public CompletableFuture<AcquireLeaseResponse> acquireLease(ByteString player, String holderId, String holderName, long waitMillis) {
-        return acquireLease(player, holderId, holderName, waitMillis, java.util.List.of());
+        return acquireLease(player, holderId, holderName, waitMillis, java.util.Collections.<String>emptyList());
     }
 
     /**
@@ -380,9 +380,9 @@ public final class LeonsDBClient implements AutoCloseable {
      */
     public CompletableFuture<AcquireLeaseResponse> acquireLease(ByteString player, String holderId, String holderName, long waitMillis,
                                                               java.util.List<String> load, String playerName, boolean confirmsJoin) {
-        var req = request(player, holderId, holderName, waitMillis, load, playerName, confirmsJoin);
+        AcquireLeaseRequest req = request(player, holderId, holderName, waitMillis, load, playerName, confirmsJoin);
         // The call itself may take as long as the wait, plus the usual timeout.
-        var stub = leases.withDeadlineAfter(timeoutMillis() + waitMillis, TimeUnit.MILLISECONDS);
+        LeaseServiceGrpc.LeaseServiceFutureStub stub = leases.withDeadlineAfter(timeoutMillis() + waitMillis, TimeUnit.MILLISECONDS);
         return call("AcquireLease", stub.acquire(req));
     }
 
@@ -421,14 +421,14 @@ public final class LeonsDBClient implements AutoCloseable {
     public CompletableFuture<AcquireLeaseResponse> takeBackLease(ByteString player, String holderId, String holderName,
                                                                long waitMillis, java.util.List<String> load, String playerName,
                                                                boolean confirmsJoin) {
-        var req = request(player, holderId, holderName, waitMillis, load, playerName, confirmsJoin);
-        var stub = leases.withDeadlineAfter(timeoutMillis() + waitMillis, TimeUnit.MILLISECONDS);
+        AcquireLeaseRequest req = request(player, holderId, holderName, waitMillis, load, playerName, confirmsJoin);
+        LeaseServiceGrpc.LeaseServiceFutureStub stub = leases.withDeadlineAfter(timeoutMillis() + waitMillis, TimeUnit.MILLISECONDS);
         return call("TakeBackLease", stub.takeBack(req));
     }
 
     private static AcquireLeaseRequest request(ByteString player, String holderId, String holderName, long waitMillis,
                                                java.util.List<String> load, String playerName, boolean confirmsJoin) {
-        var b = AcquireLeaseRequest.newBuilder()
+        AcquireLeaseRequest.Builder b = AcquireLeaseRequest.newBuilder()
                 .setPlayer(player).setHolderId(holderId).setHolderName(holderName)
                 .setWaitMs((int) Math.min(waitMillis, 30_000)).addAllLoad(load).setConfirmsJoin(confirmsJoin);
         if (playerName != null) {
@@ -447,7 +447,7 @@ public final class LeonsDBClient implements AutoCloseable {
      * @return false if this holder does not own the player with this epoch
      */
     public CompletableFuture<Boolean> joined(ByteString player, String holderId, long epoch) {
-        var stub = leases.withDeadlineAfter(timeoutMillis(), TimeUnit.MILLISECONDS);
+        LeaseServiceGrpc.LeaseServiceFutureStub stub = leases.withDeadlineAfter(timeoutMillis(), TimeUnit.MILLISECONDS);
         return call("Joined", stub.joined(com.leonsdb.proto.v1.JoinedRequest.newBuilder()
                 .setPlayer(player).setHolderId(holderId).setEpoch(epoch).build()))
                 .thenApply(com.leonsdb.proto.v1.JoinedResponse::getConfirmed);
@@ -461,7 +461,7 @@ public final class LeonsDBClient implements AutoCloseable {
      * @return the owner, if any
      */
     public CompletableFuture<com.leonsdb.proto.v1.GetOwnerResponse> getOwner(ByteString player) {
-        var stub = leases.withDeadlineAfter(timeoutMillis(), TimeUnit.MILLISECONDS);
+        LeaseServiceGrpc.LeaseServiceFutureStub stub = leases.withDeadlineAfter(timeoutMillis(), TimeUnit.MILLISECONDS);
         return call("GetOwner", stub.getOwner(com.leonsdb.proto.v1.GetOwnerRequest.newBuilder().setPlayer(player).build()));
     }
 
@@ -472,7 +472,7 @@ public final class LeonsDBClient implements AutoCloseable {
      * @return lost players and handover requests
      */
     public CompletableFuture<RenewLeasesResponse> renewLeases(String holderId) {
-        var stub = leases.withDeadlineAfter(timeoutMillis(), TimeUnit.MILLISECONDS);
+        LeaseServiceGrpc.LeaseServiceFutureStub stub = leases.withDeadlineAfter(timeoutMillis(), TimeUnit.MILLISECONDS);
         return call("RenewLeases", stub.renew(RenewLeasesRequest.newBuilder().setHolderId(holderId).build()));
     }
 
@@ -485,7 +485,7 @@ public final class LeonsDBClient implements AutoCloseable {
      * @return true if it was released
      */
     public CompletableFuture<Boolean> releaseLease(ByteString player, String holderId, long epoch) {
-        var stub = leases.withDeadlineAfter(timeoutMillis(), TimeUnit.MILLISECONDS);
+        LeaseServiceGrpc.LeaseServiceFutureStub stub = leases.withDeadlineAfter(timeoutMillis(), TimeUnit.MILLISECONDS);
         return call("ReleaseLease", stub.release(ReleaseLeaseRequest.newBuilder()
                 .setPlayer(player).setHolderId(holderId).setEpoch(epoch).build()))
                 .thenApply(ReleaseLeaseResponse::getReleased);
@@ -498,7 +498,7 @@ public final class LeonsDBClient implements AutoCloseable {
      * @return completes when the server received it
      */
     public CompletableFuture<PreparedResponse> prepared(PreparedRequest request) {
-        var stub = leases.withDeadlineAfter(timeoutMillis(), TimeUnit.MILLISECONDS);
+        LeaseServiceGrpc.LeaseServiceFutureStub stub = leases.withDeadlineAfter(timeoutMillis(), TimeUnit.MILLISECONDS);
         return call("Prepared", stub.prepared(request));
     }
 
@@ -510,7 +510,7 @@ public final class LeonsDBClient implements AutoCloseable {
      * @return the outcome
      */
     public CompletableFuture<GetTransactionOutcomeResponse> transactionOutcome(ByteString transactionId, ByteString prepareId) {
-        var stub = leases.withDeadlineAfter(timeoutMillis(), TimeUnit.MILLISECONDS);
+        LeaseServiceGrpc.LeaseServiceFutureStub stub = leases.withDeadlineAfter(timeoutMillis(), TimeUnit.MILLISECONDS);
         return call("GetTransactionOutcome", stub.getTransactionOutcome(GetTransactionOutcomeRequest.newBuilder()
                 .setTransactionId(transactionId).setPrepareId(prepareId).build()));
     }
@@ -526,7 +526,7 @@ public final class LeonsDBClient implements AutoCloseable {
      * @return true if a server had the player and was told
      */
     public CompletableFuture<Boolean> expect(ByteString player, String target) {
-        var stub = leases.withDeadlineAfter(timeoutMillis(), TimeUnit.MILLISECONDS);
+        LeaseServiceGrpc.LeaseServiceFutureStub stub = leases.withDeadlineAfter(timeoutMillis(), TimeUnit.MILLISECONDS);
         return call("Expect", stub.expect(ExpectRequest.newBuilder().setPlayer(player).setTarget(target).build()))
                 .thenApply(ExpectResponse::getOwnerTold);
     }
@@ -554,7 +554,7 @@ public final class LeonsDBClient implements AutoCloseable {
      * @return how many subscribers received it
      */
     public CompletableFuture<PublishResponse> publish(String channelName, String text, String sender) {
-        var stub = MessageServiceGrpc.newFutureStub(wire != null ? wire : channel).withInterceptors(authInterceptors)
+        MessageServiceGrpc.MessageServiceFutureStub stub = MessageServiceGrpc.newFutureStub(wire != null ? wire : channel).withInterceptors(authInterceptors)
                 .withDeadlineAfter(timeoutMillis(), TimeUnit.MILLISECONDS);
         return call("Publish", stub.publish(PublishRequest.newBuilder()
                 .setChannel(channelName).setText(text).setSender(sender).build()));
@@ -583,7 +583,7 @@ public final class LeonsDBClient implements AutoCloseable {
      * @return the record then, if it existed
      */
     public CompletableFuture<GetAtResponse> getAt(RecordRef ref, long timeMs) {
-        var stub = HistoryServiceGrpc.newFutureStub(channel).withInterceptors(authInterceptors)
+        HistoryServiceGrpc.HistoryServiceFutureStub stub = HistoryServiceGrpc.newFutureStub(channel).withInterceptors(authInterceptors)
                 .withDeadlineAfter(timeoutMillis(), TimeUnit.MILLISECONDS);
         return call("GetAt", stub.getAt(GetAtRequest.newBuilder().setRef(ref).setTime(timeMs).build()));
     }
@@ -596,7 +596,7 @@ public final class LeonsDBClient implements AutoCloseable {
      * @return the entries
      */
     public CompletableFuture<ListHistoryResponse> listHistory(RecordRef ref, int limit) {
-        var stub = HistoryServiceGrpc.newFutureStub(channel).withInterceptors(authInterceptors)
+        HistoryServiceGrpc.HistoryServiceFutureStub stub = HistoryServiceGrpc.newFutureStub(channel).withInterceptors(authInterceptors)
                 .withDeadlineAfter(timeoutMillis(), TimeUnit.MILLISECONDS);
         return call("ListHistory", stub.listHistory(ListHistoryRequest.newBuilder().setRef(ref).setLimit(limit).build()));
     }
@@ -608,11 +608,11 @@ public final class LeonsDBClient implements AutoCloseable {
      * @return the final progress message, with the records of all messages
      */
     public CompletableFuture<RollbackProgress> rollback(RollbackRequest request) {
-        var result = new CompletableFuture<RollbackProgress>();
-        var records = new java.util.ArrayList<RecordRollback>();
+        CompletableFuture<RollbackProgress> result = new CompletableFuture<>();
+        java.util.List<RecordRollback> records = new java.util.ArrayList<>();
         HistoryServiceGrpc.newStub(channel).withInterceptors(authInterceptors)
                 .withDeadlineAfter(10, TimeUnit.MINUTES)
-                .rollback(request, new StreamObserver<>() {
+                .rollback(request, new StreamObserver<RollbackProgress>() {
                     private RollbackProgress last;
 
                     @Override
@@ -673,11 +673,11 @@ public final class LeonsDBClient implements AutoCloseable {
 
     /** Ends the channel's threads, waiting up to the given seconds for each kind. */
     private void stopThreads(long seconds) throws InterruptedException {
-        var loop = eventLoop;
+        io.grpc.netty.shaded.io.netty.channel.EventLoopGroup loop = eventLoop;
         if (loop != null) {
             loop.shutdownGracefully(0, seconds, TimeUnit.SECONDS).await(seconds, TimeUnit.SECONDS);
         }
-        var cb = callbacks;
+        java.util.concurrent.ExecutorService cb = callbacks;
         if (cb != null) {
             cb.shutdown();
             if (!cb.awaitTermination(seconds, TimeUnit.SECONDS)) {
@@ -711,7 +711,7 @@ public final class LeonsDBClient implements AutoCloseable {
     }
 
     private <T> CompletableFuture<T> call(String method, ListenableFuture<T> future) {
-        var result = new CompletableFuture<T>();
+        CompletableFuture<T> result = new CompletableFuture<>();
         Futures.addCallback(future, new FutureCallback<T>() {
             @Override
             public void onSuccess(T value) {
@@ -730,7 +730,8 @@ public final class LeonsDBClient implements AutoCloseable {
         Status status = Status.fromThrowable(t);
         String reason = null;
         int writeIndex = -1;
-        if (t instanceof StatusRuntimeException sre && sre.getTrailers() != null) {
+        StatusRuntimeException sre = t instanceof StatusRuntimeException ? (StatusRuntimeException) t : null;
+        if (sre != null && sre.getTrailers() != null) {
             reason = sre.getTrailers().get(REASON);
             String index = sre.getTrailers().get(WRITE_INDEX);
             if (index != null) {

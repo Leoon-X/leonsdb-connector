@@ -166,7 +166,7 @@ final class WireChannel extends Channel {
         }
         String h = host;
         int p = port;
-        Thread.ofPlatform().daemon().name("leonsdb-wire-connect").start(() -> {
+        Jdk.startDaemon("leonsdb-wire-connect", () -> {
             try {
                 Connection fresh = Connection.open(this, h, p);
                 if (closed) {
@@ -256,10 +256,10 @@ final class WireChannel extends Channel {
                     methods.put(w.getMethods(i), i);
                 }
                 s.setSoTimeout(0);
-                Connection c = new Connection(owner, s, Map.copyOf(methods));
+                Connection c = new Connection(owner, s, Jdk.mapCopy(methods));
                 Socket sock = s;
-                Thread.ofPlatform().daemon().name("leonsdb-wire-writer").start(() -> c.write(sock));
-                Thread.ofPlatform().daemon().name("leonsdb-wire-reader").start(() -> c.read(in));
+                Jdk.startDaemon("leonsdb-wire-writer", () -> c.write(sock));
+                Jdk.startDaemon("leonsdb-wire-reader", () -> c.read(in));
                 return c;
             } catch (IOException | RuntimeException e) {
                 s.close();
@@ -379,7 +379,7 @@ final class WireChannel extends Channel {
         @Override
         public void sendMessage(Q message) {
             try (InputStream in = descriptor.streamRequest(message)) {
-                request = in.readAllBytes();
+                request = Jdk.readAllBytes(in);
             } catch (IOException e) {
                 finish(Status.INTERNAL.withDescription("could not encode the request").withCause(e), new Metadata());
             }
@@ -509,7 +509,7 @@ final class WireChannel extends Channel {
         @Override
         public void sendMessage(Q message) {
             try (InputStream in = descriptor.streamRequest(message)) {
-                request = in.readAllBytes();
+                request = Jdk.readAllBytes(in);
             } catch (IOException e) {
                 finish(Status.INTERNAL.withDescription("could not encode the request").withCause(e), new Metadata());
             }
@@ -558,8 +558,10 @@ final class WireChannel extends Channel {
         @Override
         public void answer(byte type, byte[] body) {
             switch (type) {
-                case HEADER -> events.execute(this::deliverHeaders);
-                case MESSAGE -> {
+                case HEADER:
+                    events.execute(this::deliverHeaders);
+                    break;
+                case MESSAGE: {
                     R message;
                     try {
                         message = descriptor.parseResponse(new ByteArrayInputStream(body, 4, body.length - 4));
@@ -573,9 +575,12 @@ final class WireChannel extends Channel {
                             listener.onMessage(message);
                         }
                     });
+                    break;
                 }
-                case RESPONSE -> finish(Status.OK, new Metadata());
-                default -> {
+                case RESPONSE:
+                    finish(Status.OK, new Metadata());
+                    break;
+                default: {
                     WireError e;
                     try {
                         e = WireError.parseFrom(ByteBuffer.wrap(body, 4, body.length - 4));
@@ -586,6 +591,7 @@ final class WireChannel extends Channel {
                     Metadata trailers = new Metadata();
                     e.getTrailersMap().forEach((k, v) -> trailers.put(Metadata.Key.of(k, Metadata.ASCII_STRING_MARSHALLER), v));
                     finish(Status.fromCodeValue(e.getCode()).withDescription(e.getMessage()), trailers);
+                    break;
                 }
             }
         }
@@ -652,7 +658,14 @@ final class WireChannel extends Channel {
 
     // --- framing -----------------------------------------------------------
 
-    private record Frame(byte type, byte[] body) {
+    private static final class Frame {
+        final byte type;
+        final byte[] body;
+
+        Frame(byte type, byte[] body) {
+            this.type = type;
+            this.body = body;
+        }
     }
 
     private static Frame readFrame(DataInputStream in) throws IOException {
@@ -675,11 +688,11 @@ final class WireChannel extends Channel {
         int hlen = header == null ? 0 : header.length;
         ByteArrayOutputStream b = new ByteArrayOutputStream(5 + hlen + message.length);
         ByteBuffer start = ByteBuffer.allocate(5).putInt(1 + hlen + message.length).put(type);
-        b.writeBytes(start.array());
+        b.write(start.array(), 0, 5);
         if (header != null) {
-            b.writeBytes(header);
+            b.write(header, 0, header.length);
         }
-        b.writeBytes(message);
+        b.write(message, 0, message.length);
         return b.toByteArray();
     }
 }

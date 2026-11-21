@@ -7,6 +7,7 @@ import com.leonsdb.connector.api.Channel;
 import com.leonsdb.connector.api.ChannelMessage;
 import com.leonsdb.connector.api.ChannelSubscription;
 import com.leonsdb.connector.api.LeonsDBException;
+import com.leonsdb.connector.core.Jdk;
 import com.leonsdb.connector.core.LeonsDBClient;
 import com.leonsdb.proto.v1.SubscribeRequest;
 import io.grpc.stub.ClientCallStreamObserver;
@@ -128,7 +129,7 @@ final class Channels {
                 return;
             }
             open = true;
-            client.subscribe(List.of(name), new ClientResponseObserver<SubscribeRequest, com.leonsdb.proto.v1.ChannelMessage>() {
+            client.subscribe(Jdk.listOf(name), new ClientResponseObserver<SubscribeRequest, com.leonsdb.proto.v1.ChannelMessage>() {
                 @Override
                 public void beforeStart(ClientCallStreamObserver<SubscribeRequest> c) {
                     call = c;
@@ -185,7 +186,7 @@ final class Channels {
 
         void cancel() {
             cancelled = true;
-            var c = call;
+            ClientCallStreamObserver<SubscribeRequest> c = call;
             if (c != null) {
                 c.cancel("unsubscribed", null);
             }

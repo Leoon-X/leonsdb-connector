@@ -46,10 +46,18 @@ public final class RequestException extends LeonsDBException {
      * @return true for temporary failures
      */
     public boolean isTemporary() {
-        return switch (code) {
-            case UNAVAILABLE, DEADLINE_EXCEEDED, RESOURCE_EXHAUSTED, ABORTED, INTERNAL, UNKNOWN, CANCELLED -> true;
-            default -> false;
-        };
+        switch (code) {
+            case UNAVAILABLE:
+            case DEADLINE_EXCEEDED:
+            case RESOURCE_EXHAUSTED:
+            case ABORTED:
+            case INTERNAL:
+            case UNKNOWN:
+            case CANCELLED:
+                return true;
+            default:
+                return false;
+        }
     }
 
     /**

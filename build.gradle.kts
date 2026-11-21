@@ -23,8 +23,22 @@ licenseReport {
     renderers = arrayOf<ReportRenderer>(InventoryMarkdownReportRenderer("third-party-licenses.md", "LeonsDB Connector"))
 }
 
+// The Java version a compile task builds for. Code that runs inside a
+// Minecraft server targets Java 8, since servers 1.8 to 1.16 run on it; the
+// Paper plugin's code for modern Paper and Folia (1.20+) targets Java 17;
+// the tools, the Velocity and example plugins and all tests target Java 21.
+fun javaRelease(project: String, task: String): Int {
+    val onServer = setOf("leonsdb-api", "leonsdb-core", "leonsdb-protocol", "leonsdb-paper")
+    return when {
+        task == "compileModernJava" -> 17
+        task == "compileJava" && project in onServer -> 8
+        else -> 21
+    }
+}
+
 // Settings shared by every connector module.
 subprojects {
+    val moduleName = name
     group = "com.leonsdb"
     // A release sets it: ./gradlew -PleonsdbVersion=1.2.3
     version = providers.gradleProperty("leonsdbVersion").getOrElse("0.1.0-SNAPSHOT")
@@ -43,11 +57,12 @@ subprojects {
     }
 
     tasks.withType<JavaCompile>().configureEach {
-        // Bytecode level 21 so the connector runs on every supported server,
-        // even when Gradle itself runs on a newer JDK.
-        options.release = 21
+        // One jar runs on every server from 1.8 (Java 8) to the newest, even
+        // when Gradle itself runs on a newer JDK; see javaRelease.
+        options.release = javaRelease(moduleName, name)
         options.encoding = "UTF-8"
-        options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:-processing", "-Xlint:-serial"))
+        // -options: newer JDKs warn that Java 8 is an old target.
+        options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:-processing", "-Xlint:-serial", "-Xlint:-options"))
         // Warnings are errors in our own code. Generated protobuf code (the
         // protocol module) is exempt because we do not control it.
         if (project.name != "leonsdb-protocol") options.compilerArgs.add("-Werror")

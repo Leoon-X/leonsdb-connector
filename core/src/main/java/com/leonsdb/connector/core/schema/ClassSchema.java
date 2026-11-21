@@ -44,8 +44,64 @@ public final class ClassSchema<T> {
     private static final Pattern FIELD_NAME = Pattern.compile("[A-Za-z][A-Za-z0-9_]{0,63}");
 
     /** One stored field. */
-    public record FieldBinding(String name, Field field, TypeCodec<Object> codec,
-                               boolean indexed, boolean transactional, DurationUnit duration) {
+    public static final class FieldBinding {
+
+        private final String name;
+        private final Field field;
+        private final TypeCodec<Object> codec;
+        private final boolean indexed;
+        private final boolean transactional;
+        private final DurationUnit duration;
+
+        /**
+         * Creates a binding.
+         *
+         * @param name          the stored field's name
+         * @param field         the Java field
+         * @param codec         how its values are stored
+         * @param indexed       whether it is indexed
+         * @param transactional whether its changes are kept one by one
+         * @param duration      its duration unit, or unspecified
+         */
+        public FieldBinding(String name, Field field, TypeCodec<Object> codec,
+                            boolean indexed, boolean transactional, DurationUnit duration) {
+            this.name = name;
+            this.field = field;
+            this.codec = codec;
+            this.indexed = indexed;
+            this.transactional = transactional;
+            this.duration = duration;
+        }
+
+        /** @return the stored field's name */
+        public String name() {
+            return name;
+        }
+
+        /** @return the Java field */
+        public Field field() {
+            return field;
+        }
+
+        /** @return how its values are stored */
+        public TypeCodec<Object> codec() {
+            return codec;
+        }
+
+        /** @return whether it is indexed */
+        public boolean indexed() {
+            return indexed;
+        }
+
+        /** @return whether its changes are kept one by one */
+        public boolean transactional() {
+            return transactional;
+        }
+
+        /** @return its duration unit, or unspecified */
+        public DurationUnit duration() {
+            return duration;
+        }
 
         /**
          * The LeonsDB type of this field.
@@ -149,11 +205,17 @@ public final class ClassSchema<T> {
                     if (codec.fieldType() != FieldType.FIELD_TYPE_INT && codec.fieldType() != FieldType.FIELD_TYPE_LONG) {
                         throw new IllegalArgumentException(fieldWhere + ": @Duration works on int and long fields only");
                     }
-                    duration = switch (d.value()) {
-                        case MILLIS -> DurationUnit.DURATION_UNIT_MILLIS;
-                        case SECONDS -> DurationUnit.DURATION_UNIT_SECONDS;
-                        case TICKS -> DurationUnit.DURATION_UNIT_TICKS;
-                    };
+                    switch (d.value()) {
+                        case MILLIS:
+                            duration = DurationUnit.DURATION_UNIT_MILLIS;
+                            break;
+                        case SECONDS:
+                            duration = DurationUnit.DURATION_UNIT_SECONDS;
+                            break;
+                        case TICKS:
+                            duration = DurationUnit.DURATION_UNIT_TICKS;
+                            break;
+                    }
                 }
                 f.setAccessible(true);
                 @SuppressWarnings("unchecked")

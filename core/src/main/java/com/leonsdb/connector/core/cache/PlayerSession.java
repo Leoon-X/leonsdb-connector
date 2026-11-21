@@ -116,7 +116,7 @@ final class PlayerSession {
 
     /** A transaction ended; its changes are in the cached objects. */
     void endTransaction() {
-        List<Runnable> run = List.of();
+        List<Runnable> run = java.util.Collections.emptyList();
         synchronized (this) {
             if (--transactions == 0) {
                 run = whenNoTransactions;

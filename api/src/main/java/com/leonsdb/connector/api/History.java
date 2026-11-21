@@ -6,6 +6,7 @@ package com.leonsdb.connector.api;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -109,28 +110,159 @@ public interface History {
     /**
      * One change of a record. When several writes in a row were kept as one
      * change, {@code writes} says how many.
-     *
-     * @param firstTime when the first write happened
-     * @param lastTime  when the last write happened
-     * @param writes    how many writes this change holds
-     * @param exact     a single write, never merged with others
-     * @param by        the name of the token that made it (a Minecraft
-     *                  server's, a website's, ...)
-     * @param created   the record was created
-     * @param deleted   the record was deleted
-     * @param fields    each changed field of your class, before and after
      */
-    record Change(Instant firstTime, Instant lastTime, int writes, boolean exact, String by,
-                  boolean created, boolean deleted, Map<String, FieldChange> fields) {
+    final class Change {
+
+        private final Instant firstTime;
+        private final Instant lastTime;
+        private final int writes;
+        private final boolean exact;
+        private final String by;
+        private final boolean created;
+        private final boolean deleted;
+        private final Map<String, FieldChange> fields;
+
+        /**
+         * Creates a change.
+         *
+         * @param firstTime when the first write happened
+         * @param lastTime  when the last write happened
+         * @param writes    how many writes this change holds
+         * @param exact     a single write, never merged with others
+         * @param by        the name of the token that made it (a Minecraft
+         *                  server's, a website's, ...)
+         * @param created   the record was created
+         * @param deleted   the record was deleted
+         * @param fields    each changed field of your class, before and after
+         */
+        public Change(Instant firstTime, Instant lastTime, int writes, boolean exact, String by,
+                      boolean created, boolean deleted, Map<String, FieldChange> fields) {
+            this.firstTime = firstTime;
+            this.lastTime = lastTime;
+            this.writes = writes;
+            this.exact = exact;
+            this.by = by;
+            this.created = created;
+            this.deleted = deleted;
+            this.fields = fields;
+        }
+
+        /** @return when the first write happened */
+        public Instant firstTime() {
+            return firstTime;
+        }
+
+        /** @return when the last write happened */
+        public Instant lastTime() {
+            return lastTime;
+        }
+
+        /** @return how many writes this change holds */
+        public int writes() {
+            return writes;
+        }
+
+        /** @return a single write, never merged with others */
+        public boolean exact() {
+            return exact;
+        }
+
+        /** @return the name of the token that made it (a Minecraft server's, a website's, ...) */
+        public String by() {
+            return by;
+        }
+
+        /** @return the record was created */
+        public boolean created() {
+            return created;
+        }
+
+        /** @return the record was deleted */
+        public boolean deleted() {
+            return deleted;
+        }
+
+        /** @return each changed field of your class, before and after */
+        public Map<String, FieldChange> fields() {
+            return fields;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof Change)) {
+                return false;
+            }
+            Change c = (Change) o;
+            return writes == c.writes && exact == c.exact && created == c.created && deleted == c.deleted
+                    && Objects.equals(firstTime, c.firstTime) && Objects.equals(lastTime, c.lastTime)
+                    && Objects.equals(by, c.by) && Objects.equals(fields, c.fields);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(firstTime, lastTime, writes, exact, by, created, deleted, fields);
+        }
+
+        @Override
+        public String toString() {
+            return "Change[firstTime=" + firstTime + ", lastTime=" + lastTime + ", writes=" + writes + ", exact="
+                    + exact + ", by=" + by + ", created=" + created + ", deleted=" + deleted + ", fields=" + fields + "]";
+        }
     }
 
     /**
      * A field's value before and after a change, as your class's field type.
      * Null means the field had no value.
-     *
-     * @param before the value before
-     * @param after  the value after
      */
-    record FieldChange(Object before, Object after) {
+    final class FieldChange {
+
+        private final Object before;
+        private final Object after;
+
+        /**
+         * Creates a field change.
+         *
+         * @param before the value before
+         * @param after  the value after
+         */
+        public FieldChange(Object before, Object after) {
+            this.before = before;
+            this.after = after;
+        }
+
+        /** @return the value before */
+        public Object before() {
+            return before;
+        }
+
+        /** @return the value after */
+        public Object after() {
+            return after;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof FieldChange)) {
+                return false;
+            }
+            FieldChange f = (FieldChange) o;
+            return Objects.equals(before, f.before) && Objects.equals(after, f.after);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(before, after);
+        }
+
+        @Override
+        public String toString() {
+            return "FieldChange[before=" + before + ", after=" + after + "]";
+        }
     }
 }

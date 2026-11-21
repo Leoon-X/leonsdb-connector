@@ -95,7 +95,8 @@ public final class Codecs {
      * @throws IllegalArgumentException if the type cannot be stored
      */
     public TypeCodec<?> forType(Type type) {
-        if (type instanceof Class<?> cls) {
+        if (type instanceof Class<?>) {
+            Class<?> cls = (Class<?>) type;
             TypeCodec<?> codec = byClass.get(cls);
             if (codec != null) {
                 return codec;
@@ -109,7 +110,9 @@ public final class Codecs {
             }
             throw new IllegalArgumentException(unsupported(cls));
         }
-        if (type instanceof ParameterizedType p && p.getRawType() instanceof Class<?> raw) {
+        if (type instanceof ParameterizedType && ((ParameterizedType) type).getRawType() instanceof Class<?>) {
+            ParameterizedType p = (ParameterizedType) type;
+            Class<?> raw = (Class<?>) p.getRawType();
             Type[] args = p.getActualTypeArguments();
             if (raw == List.class) {
                 return new ListCodec<>(forType(args[0]));
@@ -143,7 +146,7 @@ public final class Codecs {
 
     private static <T> TypeCodec<T> simple(FieldType fieldType, Value.KindCase kind,
                                            Function<T, Value> encode, Function<Value, T> decode) {
-        return new TypeCodec<>() {
+        return new TypeCodec<T>() {
             @Override
             public FieldType fieldType() {
                 return fieldType;
@@ -205,7 +208,13 @@ public final class Codecs {
     }
 
     /** Lists are stored whole; elements must not be null. */
-    private record ListCodec<E>(TypeCodec<E> element) implements TypeCodec<List<E>> {
+    private static final class ListCodec<E> implements TypeCodec<List<E>> {
+        private final TypeCodec<E> element;
+
+        ListCodec(TypeCodec<E> element) {
+            this.element = element;
+        }
+
         @Override
         public FieldType fieldType() {
             return FieldType.FIELD_TYPE_LIST;
@@ -237,7 +246,13 @@ public final class Codecs {
     }
 
     /** Maps have String keys and are stored whole; values must not be null. */
-    private record MapCodec<V>(TypeCodec<V> valueCodec) implements TypeCodec<Map<String, V>> {
+    private static final class MapCodec<V> implements TypeCodec<Map<String, V>> {
+        private final TypeCodec<V> valueCodec;
+
+        MapCodec(TypeCodec<V> valueCodec) {
+            this.valueCodec = valueCodec;
+        }
+
         @Override
         public FieldType fieldType() {
             return FieldType.FIELD_TYPE_MAP;

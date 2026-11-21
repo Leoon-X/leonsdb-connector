@@ -95,7 +95,7 @@ final class LeaseKeeper {
      * @throws LeonsDBException if ownership could not be obtained in time
      */
     long acquire(UUID uuid, Duration wait) {
-        return acquire(uuid, wait, java.util.List.of()).getEpoch();
+        return acquire(uuid, wait, java.util.Collections.emptyList()).getEpoch();
     }
 
     /**
@@ -124,7 +124,7 @@ final class LeaseKeeper {
      */
     com.leonsdb.proto.v1.AcquireLeaseResponse acquire(UUID uuid, Duration wait, java.util.List<String> load, String name) {
         try {
-            var resp = client.acquireLease(bytes(uuid), holderId, holderName, wait.toMillis(), load, name, true)
+            com.leonsdb.proto.v1.AcquireLeaseResponse resp = client.acquireLease(bytes(uuid), holderId, holderName, wait.toMillis(), load, name, true)
                     .get(wait.toMillis() + 10_000, TimeUnit.MILLISECONDS);
             if (resp.getTtlMs() > 0 && resp.getTtlMs() != ttlMillis) {
                 ttlMillis = resp.getTtlMs();
@@ -222,7 +222,7 @@ final class LeaseKeeper {
      */
     void stop(Duration timeout) {
         stopWatching();
-        var releases = held.entrySet().stream()
+        java.util.concurrent.CompletableFuture<?>[] releases = held.entrySet().stream()
                 .map(e -> client.releaseLease(bytes(e.getKey()), holderId, e.getValue()))
                 .toArray(java.util.concurrent.CompletableFuture<?>[]::new);
         held.clear();
@@ -242,7 +242,7 @@ final class LeaseKeeper {
         if (renewTask != null) {
             renewTask.cancel(false);
         }
-        var call = watchCall;
+        ClientCallStreamObserver<WatchLeasesRequest> call = watchCall;
         if (call != null) {
             call.cancel("connector stopping", null);
         }
@@ -353,11 +353,21 @@ final class LeaseKeeper {
             public void onNext(LeaseEvent ev) {
                 UUID uuid = uuid(ev.getPlayer());
                 switch (ev.getKind()) {
-                    case KIND_HANDOVER_REQUESTED -> onHandoverRequested.accept(uuid);
-                    case KIND_LOST -> lost(uuid);
-                    case KIND_PREPARE, KIND_OUTCOME -> onTransaction.accept(ev);
-                    case KIND_SWITCH_EXPECTED -> onSwitchExpected.accept(uuid);
-                    default -> { }
+                    case KIND_HANDOVER_REQUESTED:
+                        onHandoverRequested.accept(uuid);
+                        break;
+                    case KIND_LOST:
+                        lost(uuid);
+                        break;
+                    case KIND_PREPARE:
+                    case KIND_OUTCOME:
+                        onTransaction.accept(ev);
+                        break;
+                    case KIND_SWITCH_EXPECTED:
+                        onSwitchExpected.accept(uuid);
+                        break;
+                    default:
+                        break;
                 }
             }
 

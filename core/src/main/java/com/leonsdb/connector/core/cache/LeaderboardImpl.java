@@ -91,12 +91,17 @@ final class LeaderboardImpl<T> implements Leaderboard<T> {
     }
 
     private static Number toNumber(Value v) {
-        return switch (v.getKindCase()) {
-            case INT_VALUE -> v.getIntValue();
-            case LONG_VALUE -> v.getLongValue();
-            case DOUBLE_VALUE -> v.getDoubleValue();
-            case TIMESTAMP_VALUE -> v.getTimestampValue();
-            default -> null;
-        };
+        switch (v.getKindCase()) {
+            case INT_VALUE:
+                return v.getIntValue();
+            case LONG_VALUE:
+                return v.getLongValue();
+            case DOUBLE_VALUE:
+                return v.getDoubleValue();
+            case TIMESTAMP_VALUE:
+                return v.getTimestampValue();
+            default:
+                return null;
+        }
     }
 }

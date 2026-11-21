@@ -103,7 +103,7 @@ final class TransactionImpl implements Transaction {
         List<Operation> ops;
         // For players not cached here: the change as operations, which the
         // server the player is online on (if any) applies to its live data.
-        List<Operation> ownerOps = List.of();
+        List<Operation> ownerOps = java.util.Collections.emptyList();
         long version;
 
         Part(ClassSchema<T> schema, RecordRef ref, Consumer<? super T> change, UUID player) {
@@ -274,7 +274,7 @@ final class TransactionImpl implements Transaction {
         CompletableFuture.allOf(reads.toArray(new CompletableFuture<?>[0])).whenComplete((ok, err) -> {
             if (err != null) {
                 Throwable cause = unwrap(err);
-                boolean temporary = !(cause instanceof RequestException re) || re.isTemporary();
+                boolean temporary = !(cause instanceof RequestException) || ((RequestException) cause).isTemporary();
                 if (temporary && System.nanoTime() - startedNanos < CONFIRM_TIMEOUT.toNanos() && !service.isShutDown()) {
                     // Nothing was sent yet, so trying again is always safe.
                     later(UNCONFIRMED_RETRY_MILLIS, () -> attempt(n));
@@ -325,8 +325,8 @@ final class TransactionImpl implements Transaction {
                 base = p.schema.declaredOnly(stored.getRecord().getFieldsMap());
                 p.version = stored.getRecord().getVersion();
             } else {
-                unreadable = Set.of();
-                base = Map.of();
+                unreadable = java.util.Collections.emptySet();
+                base = java.util.Collections.emptyMap();
                 p.version = 0;
             }
         }
@@ -339,7 +339,7 @@ final class TransactionImpl implements Transaction {
             // owner adds 10 to whatever its live data holds.
             p.ownerOps = Diff.compute(p.schema, p.before, p.after, unreadable);
             if (p.ownerOps.isEmpty()) {
-                p.ops = List.of(); // the change changed nothing
+                p.ops = java.util.Collections.emptyList(); // the change changed nothing
             }
         }
     }
@@ -351,7 +351,7 @@ final class TransactionImpl implements Transaction {
                 return;
             }
             Throwable cause = unwrap(err);
-            RequestException re = cause instanceof RequestException r ? r : null;
+            RequestException re = cause instanceof RequestException ? (RequestException) cause : null;
             if (re != null && re.isVersionMismatch()) {
                 int i = re.writeIndex();
                 Part<?> p = i >= 0 && i < sent.size() ? sent.get(i) : null;
@@ -494,7 +494,7 @@ final class TransactionImpl implements Transaction {
     }
 
     private static void later(long millis, Runnable task) {
-        CompletableFuture.delayedExecutor(millis, TimeUnit.MILLISECONDS).execute(task);
+        com.leonsdb.connector.core.Jdk.runLater(millis, task);
     }
 
     private static ByteString randomId() {

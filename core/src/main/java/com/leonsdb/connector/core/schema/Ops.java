@@ -37,10 +37,17 @@ public final class Ops {
         Map<String, Value> out = new HashMap<>(fields);
         for (Operation op : ops) {
             switch (op.getOpCase()) {
-                case SET -> out.put(op.getField(), op.getSet());
-                case UNSET -> out.remove(op.getField());
-                case INCREMENT -> out.put(op.getField(), add(op.getField(), out.get(op.getField()), op.getIncrement()));
-                default -> throw new IllegalArgumentException("operation on " + op.getField() + " is empty");
+                case SET:
+                    out.put(op.getField(), op.getSet());
+                    break;
+                case UNSET:
+                    out.remove(op.getField());
+                    break;
+                case INCREMENT:
+                    out.put(op.getField(), add(op.getField(), out.get(op.getField()), op.getIncrement()));
+                    break;
+                default:
+                    throw new IllegalArgumentException("operation on " + op.getField() + " is empty");
             }
         }
         return out;
@@ -51,18 +58,21 @@ public final class Ops {
             throw new IllegalArgumentException(field + " is not a number of the same type as the increment");
         }
         try {
-            return switch (delta.getKindCase()) {
-                case INT_VALUE -> Value.newBuilder().setIntValue(Math.addExact(current == null ? 0 : current.getIntValue(), delta.getIntValue())).build();
-                case LONG_VALUE -> Value.newBuilder().setLongValue(Math.addExact(current == null ? 0 : current.getLongValue(), delta.getLongValue())).build();
-                case DOUBLE_VALUE -> {
+            switch (delta.getKindCase()) {
+                case INT_VALUE:
+                    return Value.newBuilder().setIntValue(Math.addExact(current == null ? 0 : current.getIntValue(), delta.getIntValue())).build();
+                case LONG_VALUE:
+                    return Value.newBuilder().setLongValue(Math.addExact(current == null ? 0 : current.getLongValue(), delta.getLongValue())).build();
+                case DOUBLE_VALUE: {
                     double v = (current == null ? 0 : current.getDoubleValue()) + delta.getDoubleValue();
                     if (!Double.isFinite(v)) {
                         throw new ArithmeticException("overflow");
                     }
-                    yield Value.newBuilder().setDoubleValue(v).build();
+                    return Value.newBuilder().setDoubleValue(v).build();
                 }
-                default -> throw new IllegalArgumentException(field + ": only numbers can be incremented");
-            };
+                default:
+                    throw new IllegalArgumentException(field + ": only numbers can be incremented");
+            }
         } catch (ArithmeticException e) {
             throw new IllegalArgumentException(field + " would overflow", e);
         }
@@ -90,15 +100,22 @@ public final class Ops {
             return false;
         }
         Integer cmp = compare(have, c.getValue());
-        return switch (c.getComparison()) {
-            case COMPARISON_EQUAL -> cmp != null && cmp == 0;
-            case COMPARISON_NOT_EQUAL -> cmp == null || cmp != 0;
-            case COMPARISON_LESS -> cmp != null && cmp < 0;
-            case COMPARISON_LESS_OR_EQUAL -> cmp != null && cmp <= 0;
-            case COMPARISON_GREATER -> cmp != null && cmp > 0;
-            case COMPARISON_GREATER_OR_EQUAL -> cmp != null && cmp >= 0;
-            default -> false;
-        };
+        switch (c.getComparison()) {
+            case COMPARISON_EQUAL:
+                return cmp != null && cmp == 0;
+            case COMPARISON_NOT_EQUAL:
+                return cmp == null || cmp != 0;
+            case COMPARISON_LESS:
+                return cmp != null && cmp < 0;
+            case COMPARISON_LESS_OR_EQUAL:
+                return cmp != null && cmp <= 0;
+            case COMPARISON_GREATER:
+                return cmp != null && cmp > 0;
+            case COMPARISON_GREATER_OR_EQUAL:
+                return cmp != null && cmp >= 0;
+            default:
+                return false;
+        }
     }
 
     /** Orders a and b, or returns null when they cannot be compared. */
@@ -111,21 +128,29 @@ public final class Ops {
         if (a.getKindCase() != b.getKindCase()) {
             return null;
         }
-        return switch (a.getKindCase()) {
-            case TIMESTAMP_VALUE -> Long.compare(a.getTimestampValue(), b.getTimestampValue());
-            case STRING_VALUE -> compareBytes(a.getStringValueBytes().toByteArray(), b.getStringValueBytes().toByteArray());
-            case UUID_VALUE -> compareBytes(a.getUuidValue().toByteArray(), b.getUuidValue().toByteArray());
-            default -> Objects.equals(a, b) ? 0 : null;
-        };
+        switch (a.getKindCase()) {
+            case TIMESTAMP_VALUE:
+                return Long.compare(a.getTimestampValue(), b.getTimestampValue());
+            case STRING_VALUE:
+                return compareBytes(a.getStringValueBytes().toByteArray(), b.getStringValueBytes().toByteArray());
+            case UUID_VALUE:
+                return compareBytes(a.getUuidValue().toByteArray(), b.getUuidValue().toByteArray());
+            default:
+                return Objects.equals(a, b) ? 0 : null;
+        }
     }
 
     private static BigDecimal number(Value v) {
-        return switch (v.getKindCase()) {
-            case INT_VALUE -> BigDecimal.valueOf(v.getIntValue());
-            case LONG_VALUE -> BigDecimal.valueOf(v.getLongValue());
-            case DOUBLE_VALUE -> new BigDecimal(v.getDoubleValue());
-            default -> null;
-        };
+        switch (v.getKindCase()) {
+            case INT_VALUE:
+                return BigDecimal.valueOf(v.getIntValue());
+            case LONG_VALUE:
+                return BigDecimal.valueOf(v.getLongValue());
+            case DOUBLE_VALUE:
+                return new BigDecimal(v.getDoubleValue());
+            default:
+                return null;
+        }
     }
 
     private static int compareBytes(byte[] a, byte[] b) {
@@ -146,17 +171,36 @@ public final class Ops {
      * @return for example {@code coins >= 100}
      */
     public static String describe(Condition c) {
-        String op = switch (c.getComparison()) {
-            case COMPARISON_EQUAL -> "==";
-            case COMPARISON_NOT_EQUAL -> "!=";
-            case COMPARISON_LESS -> "<";
-            case COMPARISON_LESS_OR_EQUAL -> "<=";
-            case COMPARISON_GREATER -> ">";
-            case COMPARISON_GREATER_OR_EQUAL -> ">=";
-            case COMPARISON_EXISTS -> "exists";
-            case COMPARISON_MISSING -> "missing";
-            default -> "?";
-        };
+        String op;
+        switch (c.getComparison()) {
+            case COMPARISON_EQUAL:
+                op = "==";
+                break;
+            case COMPARISON_NOT_EQUAL:
+                op = "!=";
+                break;
+            case COMPARISON_LESS:
+                op = "<";
+                break;
+            case COMPARISON_LESS_OR_EQUAL:
+                op = "<=";
+                break;
+            case COMPARISON_GREATER:
+                op = ">";
+                break;
+            case COMPARISON_GREATER_OR_EQUAL:
+                op = ">=";
+                break;
+            case COMPARISON_EXISTS:
+                op = "exists";
+                break;
+            case COMPARISON_MISSING:
+                op = "missing";
+                break;
+            default:
+                op = "?";
+                break;
+        }
         if (c.getComparison() == Comparison.COMPARISON_EXISTS || c.getComparison() == Comparison.COMPARISON_MISSING) {
             return c.getField() + " " + op;
         }
@@ -164,14 +208,21 @@ public final class Ops {
     }
 
     private static String text(Value v) {
-        return switch (v.getKindCase()) {
-            case INT_VALUE -> String.valueOf(v.getIntValue());
-            case LONG_VALUE -> String.valueOf(v.getLongValue());
-            case DOUBLE_VALUE -> String.valueOf(v.getDoubleValue());
-            case BOOL_VALUE -> String.valueOf(v.getBoolValue());
-            case STRING_VALUE -> "\"" + v.getStringValue() + "\"";
-            case TIMESTAMP_VALUE -> java.time.Instant.ofEpochMilli(v.getTimestampValue()).toString();
-            default -> "a " + v.getKindCase().name().toLowerCase(java.util.Locale.ROOT).replace("_value", "") + " value";
-        };
+        switch (v.getKindCase()) {
+            case INT_VALUE:
+                return String.valueOf(v.getIntValue());
+            case LONG_VALUE:
+                return String.valueOf(v.getLongValue());
+            case DOUBLE_VALUE:
+                return String.valueOf(v.getDoubleValue());
+            case BOOL_VALUE:
+                return String.valueOf(v.getBoolValue());
+            case STRING_VALUE:
+                return "\"" + v.getStringValue() + "\"";
+            case TIMESTAMP_VALUE:
+                return java.time.Instant.ofEpochMilli(v.getTimestampValue()).toString();
+            default:
+                return "a " + v.getKindCase().name().toLowerCase(java.util.Locale.ROOT).replace("_value", "") + " value";
+        }
     }
 }

@@ -7,6 +7,7 @@ import com.leonsdb.connector.api.History;
 import com.leonsdb.connector.api.LeonsDBException;
 import com.leonsdb.connector.api.Rollback;
 import com.leonsdb.connector.api.RollbackResult;
+import com.leonsdb.connector.core.Jdk;
 import com.leonsdb.connector.core.LeonsDBClient;
 import com.leonsdb.connector.core.schema.ClassSchema;
 import com.leonsdb.proto.v1.HistoryEntry;
@@ -89,7 +90,7 @@ final class HistoryImpl implements History {
                 Map<String, com.leonsdb.proto.v1.FieldChange> fields = new LinkedHashMap<>();
                 Map<String, History.FieldChange> decoded = new LinkedHashMap<>();
                 e.getChangesList().forEach(c -> fields.put(c.getField(), c));
-                for (var f : schema.fields()) {
+                for (ClassSchema.FieldBinding f : schema.fields()) {
                     com.leonsdb.proto.v1.FieldChange c = fields.get(f.name());
                     if (c != null) {
                         decoded.put(f.name(), new History.FieldChange(
@@ -97,9 +98,9 @@ final class HistoryImpl implements History {
                     }
                 }
                 out.add(new Change(Instant.ofEpochMilli(e.getFirstTime()), Instant.ofEpochMilli(e.getLastTime()), e.getWrites(),
-                        e.getExact(), e.getActor(), e.getCreated(), e.getDeleted(), Map.copyOf(decoded)));
+                        e.getExact(), e.getActor(), e.getCreated(), e.getDeleted(), Jdk.mapCopy(decoded)));
             }
-            return List.copyOf(out);
+            return Jdk.listCopy(out);
         }));
     }
 
@@ -165,12 +166,12 @@ final class HistoryImpl implements History {
         for (RecordRollback r : p.getRecordsList()) {
             RecordRef ref = r.getRef();
             String key = ref.hasPlayer() ? uuid(ref.getPlayer()).toString() : ref.getId();
-            List<String> fields = r.getFieldsList().stream().map(com.leonsdb.proto.v1.FieldChange::getField).toList();
+            List<String> fields = r.getFieldsList().stream().map(com.leonsdb.proto.v1.FieldChange::getField).collect(java.util.stream.Collectors.toList());
             records.add(new RollbackResult.RecordRollback(ref.getNamespace(), ref.getCollection(), key, fields,
                     r.getRemoved(), r.getRestored(), r.getError().isEmpty() ? null : r.getError()));
         }
         int changed = (int) (apply ? p.getRecordsChanged() : p.getRecordsToChange());
-        return new RollbackResult(apply, changed, (int) p.getRecordsFailed(), List.copyOf(p.getUndoneActorsList()), List.copyOf(records));
+        return new RollbackResult(apply, changed, (int) p.getRecordsFailed(), Jdk.listCopy(p.getUndoneActorsList()), Jdk.listCopy(records));
     }
 
     private <T> ClassSchema<T> playerSchema(Class<T> type) {
@@ -206,10 +207,10 @@ final class HistoryImpl implements History {
     }
 
     private <T> CompletableFuture<T> onMain(CompletableFuture<T> f) {
-        var out = new CompletableFuture<T>();
+        CompletableFuture<T> out = new CompletableFuture<>();
         f.whenComplete((v, e) -> service.onMainThread(() -> {
             if (e != null) {
-                out.completeExceptionally(e instanceof java.util.concurrent.CompletionException ce && ce.getCause() != null ? ce.getCause() : e);
+                out.completeExceptionally(e instanceof java.util.concurrent.CompletionException && e.getCause() != null ? e.getCause() : e);
             } else {
                 out.complete(v);
             }

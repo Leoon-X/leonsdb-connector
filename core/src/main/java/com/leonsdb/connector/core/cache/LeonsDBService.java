@@ -16,6 +16,7 @@ import com.leonsdb.connector.api.LeonsDBProvider;
 import com.leonsdb.connector.api.PlayerHandle;
 import com.leonsdb.connector.api.Registration;
 import com.leonsdb.connector.api.Transaction;
+import com.leonsdb.connector.core.Jdk;
 import com.leonsdb.connector.core.LeonsDBClient;
 import com.leonsdb.connector.core.RequestException;
 import com.leonsdb.connector.core.schema.ClassSchema;
@@ -70,30 +71,67 @@ import java.util.logging.Logger;
  */
 public final class LeonsDBService implements LeonsDBProvider {
 
-    /**
-     * Connector settings.
-     *
-     * @param serverName    readable name of this Minecraft server, shown to
-     *                      other servers waiting for a player
-     * @param loadTimeout   how long loading a joining player's data may take
-     * @param leaseWait     how long a join may wait for another server to
-     *                      hand the player over
-     * @param handoverGrace how long a player may stay on this server after
-     *                      their data was handed to another server before
-     *                      being disconnected
-     * @param recoveryDir   where unsaved changes are written if the server is
-     *                      unreachable at shutdown
-     */
-    public record Settings(String serverName, Duration loadTimeout, Duration leaseWait,
-                           Duration handoverGrace, Path recoveryDir) {
+    /** Connector settings. */
+    public static final class Settings {
 
-        /** Validates the settings. */
-        public Settings {
-            Objects.requireNonNull(serverName, "serverName");
-            Objects.requireNonNull(loadTimeout, "loadTimeout");
-            Objects.requireNonNull(leaseWait, "leaseWait");
-            Objects.requireNonNull(handoverGrace, "handoverGrace");
-            Objects.requireNonNull(recoveryDir, "recoveryDir");
+        private final String serverName;
+        private final Duration loadTimeout;
+        private final Duration leaseWait;
+        private final Duration handoverGrace;
+        private final Path recoveryDir;
+
+        /**
+         * Creates and checks the settings.
+         *
+         * @param serverName    readable name of this Minecraft server, shown to
+         *                      other servers waiting for a player
+         * @param loadTimeout   how long loading a joining player's data may take
+         * @param leaseWait     how long a join may wait for another server to
+         *                      hand the player over
+         * @param handoverGrace how long a player may stay on this server after
+         *                      their data was handed to another server before
+         *                      being disconnected
+         * @param recoveryDir   where unsaved changes are written if the server is
+         *                      unreachable at shutdown
+         */
+        public Settings(String serverName, Duration loadTimeout, Duration leaseWait,
+                        Duration handoverGrace, Path recoveryDir) {
+            this.serverName = Objects.requireNonNull(serverName, "serverName");
+            this.loadTimeout = Objects.requireNonNull(loadTimeout, "loadTimeout");
+            this.leaseWait = Objects.requireNonNull(leaseWait, "leaseWait");
+            this.handoverGrace = Objects.requireNonNull(handoverGrace, "handoverGrace");
+            this.recoveryDir = Objects.requireNonNull(recoveryDir, "recoveryDir");
+        }
+
+        /** @return readable name of this Minecraft server */
+        public String serverName() {
+            return serverName;
+        }
+
+        /** @return how long loading a joining player's data may take */
+        public Duration loadTimeout() {
+            return loadTimeout;
+        }
+
+        /** @return how long a join may wait for another server to hand the player over */
+        public Duration leaseWait() {
+            return leaseWait;
+        }
+
+        /** @return how long a handed-over player may stay before being disconnected */
+        public Duration handoverGrace() {
+            return handoverGrace;
+        }
+
+        /** @return where unsaved changes are written if the server is unreachable at shutdown */
+        public Path recoveryDir() {
+            return recoveryDir;
+        }
+
+        @Override
+        public String toString() {
+            return "Settings[serverName=" + serverName + ", loadTimeout=" + loadTimeout + ", leaseWait=" + leaseWait
+                    + ", handoverGrace=" + handoverGrace + ", recoveryDir=" + recoveryDir + "]";
         }
     }
 
@@ -224,7 +262,7 @@ public final class LeonsDBService implements LeonsDBProvider {
     @Override
     public <T> Leaderboard<T> leaderboard(Class<T> type, String field, Leaderboard.Order order) {
         ClassSchema<T> schema = schema(type);
-        var binding = schema.fields().stream().filter(f -> f.name().equals(field)).findFirst()
+        ClassSchema.FieldBinding binding = schema.fields().stream().filter(f -> f.name().equals(field)).findFirst()
                 .orElseThrow(() -> new LeonsDBException(type.getSimpleName() + " has no field \"" + field + "\""));
         if (!binding.indexed()) {
             throw new LeonsDBException(type.getSimpleName() + "." + field + " is not @Indexed; mark it @Indexed to rank by it");
@@ -303,7 +341,7 @@ public final class LeonsDBService implements LeonsDBProvider {
         }
 
         // Ownership and the player's records in one round trip.
-        var acquired = leases.acquire(uuid, settings.leaseWait(), playerCollections(), name);
+        com.leonsdb.proto.v1.AcquireLeaseResponse acquired = leases.acquire(uuid, settings.leaseWait(), playerCollections(), name);
 
         PlayerSession session = new PlayerSession(uuid, acquired.getEpoch());
         session.name = name;
@@ -316,7 +354,7 @@ public final class LeonsDBService implements LeonsDBProvider {
             }
             if (acquired.getLoaded()) {
                 RecordRef ref = playerRef(schema, uuid);
-                var rec = loaded.get(schema.namespace() + "." + schema.collection());
+                com.leonsdb.proto.v1.Record rec = loaded.get(schema.namespace() + "." + schema.collection());
                 GetResponse resp = rec == null ? GetResponse.getDefaultInstance() : GetResponse.newBuilder().setFound(true).setRecord(rec).build();
                 putObject(session, fromResponse(session, schema, ref, resp));
             } else {
@@ -573,7 +611,7 @@ public final class LeonsDBService implements LeonsDBProvider {
         // Players handed over to another server who are still here: what
         // changed since the handover follows them now.
         Map<PlayerSession, List<LateChange<?>>> late = new HashMap<>();
-        for (PlayerSession old : List.copyOf(handedOver.values())) {
+        for (PlayerSession old : Jdk.listCopy(handedOver.values())) {
             if (handedOver.remove(old.uuid, old)) {
                 List<LateChange<?>> changes = lateChangesOf(old);
                 late.put(old, changes);
@@ -672,7 +710,7 @@ public final class LeonsDBService implements LeonsDBProvider {
                 Throwable cause = err instanceof java.util.concurrent.CompletionException && err.getCause() != null
                         ? err.getCause() : err;
                 // A LeonsDB from before join confirmations: as before. Unreachable: ask again later.
-                elsewhere = cause instanceof RequestException re && re.code() == io.grpc.Status.Code.UNIMPLEMENTED;
+                elsewhere = cause instanceof RequestException && ((RequestException) cause).code() == io.grpc.Status.Code.UNIMPLEMENTED;
             }
             if (elsewhere) {
                 platform.runForPlayer(uuid, () -> {
@@ -726,7 +764,7 @@ public final class LeonsDBService implements LeonsDBProvider {
             }
             Throwable cause = err instanceof java.util.concurrent.CompletionException && err.getCause() != null
                     ? err.getCause() : err;
-            if (cause instanceof RequestException re && re.code() == io.grpc.Status.Code.UNIMPLEMENTED) {
+            if (cause instanceof RequestException && ((RequestException) cause).code() == io.grpc.Status.Code.UNIMPLEMENTED) {
                 takeBackUnsupported = true; // the player stays usable here until they leave
                 log.warning("This LeonsDB server cannot give players back after a server switch that failed; "
                         + "such players are disconnected instead. Update LeonsDB to 0.10 or newer.");
@@ -734,7 +772,7 @@ public final class LeonsDBService implements LeonsDBProvider {
             }
             // Still owned elsewhere after the wait (the switch is going on),
             // or LeonsDB is unreachable: try again.
-            boolean waited = cause instanceof LeonsDBException e && "OWNED_ELSEWHERE".equals(e.reason());
+            boolean waited = cause instanceof LeonsDBException && "OWNED_ELSEWHERE".equals(((LeonsDBException) cause).reason());
             try {
                 background.schedule(() -> takeBack(old), waited ? 0 : TAKE_BACK_RETRY.toMillis(), TimeUnit.MILLISECONDS);
             } catch (java.util.concurrent.RejectedExecutionException stopped) {
@@ -819,7 +857,20 @@ public final class LeonsDBService implements LeonsDBProvider {
      * @param handedOver its values when it was handed over
      * @param now       its values when the player left
      */
-    private record LateChange<T>(CachedObject<T> obj, Map<String, Value> handedOver, Map<String, Value> now) {
+    private static final class LateChange<T> {
+        private final CachedObject<T> obj;
+        private final Map<String, Value> handedOver;
+        private final Map<String, Value> now;
+
+        LateChange(CachedObject<T> obj, Map<String, Value> handedOver, Map<String, Value> now) {
+            this.obj = obj;
+            this.handedOver = handedOver;
+            this.now = now;
+        }
+
+        CachedObject<T> obj() {
+            return obj;
+        }
 
         /** As a change to the player's data wherever it is now: numbers by their difference, others set. */
         void addTo(Transaction t, UUID player) {
@@ -847,7 +898,7 @@ public final class LeonsDBService implements LeonsDBProvider {
      */
     private List<LateChange<?>> lateChangesOf(PlayerSession old) {
         List<LateChange<?>> changes = new ArrayList<>();
-        var finals = old.finals;
+        Map<CachedObject<?>, Map<String, Value>> finals = old.finals;
         if (finals == null) {
             return changes;
         }
@@ -898,7 +949,7 @@ public final class LeonsDBService implements LeonsDBProvider {
             }
             Throwable cause = err instanceof java.util.concurrent.CompletionException && err.getCause() != null
                     ? err.getCause() : err;
-            String reason = cause instanceof LeonsDBException e ? e.reason() : null;
+            String reason = cause instanceof LeonsDBException ? ((LeonsDBException) cause).reason() : null;
             if ("NOT_CONFIRMED".equals(reason)) {
                 // Still being sent under the same transaction id; sending it
                 // again as a new one could apply it twice.
@@ -908,11 +959,11 @@ public final class LeonsDBService implements LeonsDBProvider {
             // Refused for good, unlike while the player is owned or loaded
             // elsewhere for a moment (a take-back here that came too late is
             // letting go, the player is switching on): those are retried.
-            boolean refused = cause instanceof RequestException re && !re.isTemporary()
-                    && !java.util.Set.of("OWNER_UNAVAILABLE", "BUSY", "PLAYER_NOT_LOADED", "PLAYER_ONLINE").contains(reason);
+            boolean refused = cause instanceof RequestException && !((RequestException) cause).isTemporary()
+                    && !Jdk.setOf("OWNER_UNAVAILABLE", "BUSY", "PLAYER_NOT_LOADED", "PLAYER_ONLINE").contains(reason);
             if (refused) {
                 log.severe("LeonsDB refused the changes made to " + old.uuid + " just before they switched servers: "
-                        + cause.getMessage() + ". Changes: " + changes.stream().map(LateChange::ops).toList());
+                        + cause.getMessage() + ". Changes: " + changes.stream().map(LateChange::ops).collect(java.util.stream.Collectors.toList()));
                 old.lateChanges.completeExceptionally(cause);
                 return;
             }
@@ -941,7 +992,7 @@ public final class LeonsDBService implements LeonsDBProvider {
         CachedObject<T> fresh = fromResponse(session, schema, ref, resp);
         @SuppressWarnings("unchecked")
         CachedObject<T> before = (CachedObject<T>) old.objects.get(schema.type());
-        var finals = old.finals;
+        Map<CachedObject<?>, Map<String, Value>> finals = old.finals;
         Map<String, Value> handedOverValues = before == null || finals == null ? null : finals.get(before);
         if (handedOverValues == null) {
             return fresh; // registered since the handover, or it could not be saved then
@@ -991,7 +1042,7 @@ public final class LeonsDBService implements LeonsDBProvider {
     private void onDatabaseReplaced() {
         handedOver.clear();
         int n = 0;
-        for (UUID uuid : List.copyOf(sessions.keySet())) {
+        for (UUID uuid : Jdk.listCopy(sessions.keySet())) {
             if (drop(uuid, "The network's data was restored from a backup. Please reconnect.")) {
                 n++;
             }
@@ -1198,8 +1249,8 @@ public final class LeonsDBService implements LeonsDBProvider {
 
     private <T> CachedObject<T> fromResponse(PlayerSession session, ClassSchema<T> schema, RecordRef ref, GetResponse resp) {
         T instance = schema.newInstance();
-        Set<String> unreadable = Set.of();
-        Map<String, Value> base = Map.of();
+        Set<String> unreadable = java.util.Collections.emptySet();
+        Map<String, Value> base = java.util.Collections.emptyMap();
         long version = 0;
         if (resp.getFound()) {
             Map<String, Value> fields = resp.getRecord().getFieldsMap();
@@ -1258,9 +1309,9 @@ public final class LeonsDBService implements LeonsDBProvider {
 
     private void writeRecoveryFiles(Map<CachedObject<?>, List<com.leonsdb.proto.v1.Operation>> unsaved) {
         int written = 0;
-        for (var e : unsaved.entrySet()) {
+        for (Map.Entry<CachedObject<?>, List<com.leonsdb.proto.v1.Operation>> e : unsaved.entrySet()) {
             CachedObject<?> obj = e.getKey();
-            var ops = e.getValue();
+            List<com.leonsdb.proto.v1.Operation> ops = e.getValue();
             if (ops.isEmpty()) {
                 continue;
             }
@@ -1270,7 +1321,7 @@ public final class LeonsDBService implements LeonsDBProvider {
                 Files.createDirectories(settings.recoveryDir());
                 Path file = settings.recoveryDir().resolve(obj.schema().namespace() + "-" + obj.schema().collection() + "-"
                         + System.currentTimeMillis() + "-" + written + ".txt");
-                Files.writeString(file, text, StandardCharsets.UTF_8);
+                Files.write(file, text.getBytes(StandardCharsets.UTF_8));
                 written++;
             } catch (IOException ioe) {
                 log.log(Level.SEVERE, "Could not write recovery file; unsaved change: " + text, ioe);

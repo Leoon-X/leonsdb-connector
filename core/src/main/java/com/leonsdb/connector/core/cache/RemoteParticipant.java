@@ -4,6 +4,7 @@
 package com.leonsdb.connector.core.cache;
 
 import com.google.protobuf.ByteString;
+import com.leonsdb.connector.core.Jdk;
 import com.leonsdb.connector.core.LeonsDBClient;
 import com.leonsdb.connector.core.schema.ClassSchema;
 import com.leonsdb.connector.core.schema.Diff;
@@ -16,7 +17,6 @@ import com.leonsdb.proto.v1.PreparedRequest;
 import com.leonsdb.proto.v1.Value;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -54,8 +54,21 @@ final class RemoteParticipant {
     private final Map<String, Prepared> prepared = new ConcurrentHashMap<>();
 
     /** One prepared write, waiting for its outcome. */
-    private record Prepared(LeaseEvent request, PlayerSession session, CachedObject<?> obj,
-                            Map<String, Value> before, Map<String, Value> after) {
+    private static final class Prepared {
+        final LeaseEvent request;
+        final PlayerSession session;
+        final CachedObject<?> obj;
+        final Map<String, Value> before;
+        final Map<String, Value> after;
+
+        Prepared(LeaseEvent request, PlayerSession session, CachedObject<?> obj,
+                 Map<String, Value> before, Map<String, Value> after) {
+            this.request = request;
+            this.session = session;
+            this.obj = obj;
+            this.before = before;
+            this.after = after;
+        }
     }
 
     RemoteParticipant(LeonsDBService service, LeonsDBClient client, Supplier<String> holderId,
@@ -71,9 +84,14 @@ final class RemoteParticipant {
     /** Handles KIND_PREPARE and KIND_OUTCOME events. */
     void onEvent(LeaseEvent ev) {
         switch (ev.getKind()) {
-            case KIND_PREPARE -> prepare(ev);
-            case KIND_OUTCOME -> finish(key(ev), ev.getCommitted(), ev.getVersion());
-            default -> { }
+            case KIND_PREPARE:
+                prepare(ev);
+                break;
+            case KIND_OUTCOME:
+                finish(key(ev), ev.getCommitted(), ev.getVersion());
+                break;
+            default:
+                break;
         }
     }
 
@@ -233,6 +251,6 @@ final class RemoteParticipant {
     }
 
     private static String hex(ByteString b) {
-        return HexFormat.of().formatHex(b.toByteArray());
+        return Jdk.hex(b.toByteArray());
     }
 }

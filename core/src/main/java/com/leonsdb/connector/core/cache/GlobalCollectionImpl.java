@@ -5,12 +5,14 @@ package com.leonsdb.connector.core.cache;
 
 import com.leonsdb.connector.api.GlobalCollection;
 import com.leonsdb.connector.api.LeonsDBException;
+import com.leonsdb.connector.core.Jdk;
 import com.leonsdb.connector.core.LeonsDBClient;
 import com.leonsdb.connector.core.RequestException;
 import com.leonsdb.connector.core.schema.ClassSchema;
 import com.leonsdb.connector.core.schema.Diff;
 import com.leonsdb.proto.v1.RecordRef;
 import com.leonsdb.proto.v1.Value;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -19,7 +21,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 /**
@@ -67,8 +68,8 @@ final class GlobalCollectionImpl<T> implements GlobalCollection<T> {
     private CompletableFuture<T> attempt(RecordRef ref, Consumer<? super T> change, int n) {
         return client.get(ref).thenCompose(resp -> {
             T obj = schema.newInstance();
-            Set<String> unreadable = Set.of();
-            Map<String, Value> base = Map.of();
+            Set<String> unreadable = java.util.Collections.emptySet();
+            Map<String, Value> base = java.util.Collections.emptyMap();
             long version = 0;
             if (resp.getFound()) {
                 unreadable = schema.write(obj, resp.getRecord().getFieldsMap());
@@ -76,28 +77,25 @@ final class GlobalCollectionImpl<T> implements GlobalCollection<T> {
                 version = resp.getRecord().getVersion();
             }
             change.accept(obj);
-            var ops = Diff.compute(schema, base, schema.read(obj), unreadable);
+            List<com.leonsdb.proto.v1.Operation> ops = Diff.compute(schema, base, schema.read(obj), unreadable);
             if (ops.isEmpty()) {
                 return CompletableFuture.completedFuture(obj);
             }
-            return client.save(ref, ops, 0, OptionalLong.of(version))
-                    .thenApply(r -> obj)
-                    .exceptionallyCompose(err -> {
+            return Jdk.exceptionallyCompose(client.save(ref, ops, 0, OptionalLong.of(version))
+                    .thenApply(r -> obj), err -> {
                         Throwable cause = err instanceof CompletionException && err.getCause() != null ? err.getCause() : err;
-                        if (cause instanceof RequestException re && re.isVersionMismatch()) {
+                        if (cause instanceof RequestException && ((RequestException) cause).isVersionMismatch()) {
                             if (n < MAX_ATTEMPTS) {
                                 // Wait a random, growing time so servers that collided
                                 // spread out instead of colliding again.
                                 long cap = Math.min(MAX_BACKOFF_MILLIS, BASE_BACKOFF_MILLIS << Math.min(n, 16));
                                 long delay = ThreadLocalRandom.current().nextLong(cap + 1);
-                                return CompletableFuture.supplyAsync(() -> null,
-                                                CompletableFuture.delayedExecutor(delay, TimeUnit.MILLISECONDS))
-                                        .thenCompose(x -> attempt(ref, change, n + 1));
+                                return Jdk.delay(delay).thenCompose(x -> attempt(ref, change, n + 1));
                             }
-                            return CompletableFuture.failedFuture(new LeonsDBException(
-                                    "Gave up updating " + ref.getId() + ": it kept changing on other servers", "VERSION_MISMATCH", re));
+                            return Jdk.failed(new LeonsDBException(
+                                    "Gave up updating " + ref.getId() + ": it kept changing on other servers", "VERSION_MISMATCH", cause));
                         }
-                        return CompletableFuture.failedFuture(cause);
+                        return Jdk.failed(cause);
                     });
         });
     }

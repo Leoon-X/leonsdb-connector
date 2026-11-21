@@ -32,7 +32,14 @@ final class ApplyBatcher {
     static final int MAX_IN_FLIGHT = 8;
     static final int MAX_BATCH = 500;
 
-    private record Pending(ApplyRequest request, CompletableFuture<ApplyResponse> result) {
+    private static final class Pending {
+        final ApplyRequest request;
+        final CompletableFuture<ApplyResponse> result;
+
+        Pending(ApplyRequest request, CompletableFuture<ApplyResponse> result) {
+            this.request = request;
+            this.result = result;
+        }
     }
 
     private final Function<ApplyRequest, CompletableFuture<ApplyResponse>> single;
@@ -57,7 +64,7 @@ final class ApplyBatcher {
     }
 
     CompletableFuture<ApplyResponse> apply(ApplyRequest request) {
-        var p = new Pending(request, new CompletableFuture<>());
+        Pending p = new Pending(request, new CompletableFuture<>());
         List<Pending> batch = null;
         synchronized (this) {
             queue.add(p);
@@ -76,7 +83,7 @@ final class ApplyBatcher {
     private List<Pending> takeLocked() {
         List<Pending> batch = new ArrayList<>();
         Set<ByteString> records = new HashSet<>();
-        var rest = new ArrayList<Pending>();
+        List<Pending> rest = new ArrayList<>();
         for (Pending p : queue) {
             if (batch.size() < MAX_BATCH && records.add(p.request.getRef().toByteString())) {
                 batch.add(p);
@@ -96,15 +103,15 @@ final class ApplyBatcher {
             for (Pending p : batch) {
                 calls.add(single.apply(p.request).whenComplete((r, err) -> complete(p, r, err)));
             }
-            sent = CompletableFuture.allOf(calls.toArray(CompletableFuture[]::new));
+            sent = CompletableFuture.allOf(calls.toArray(new CompletableFuture<?>[0]));
         } else {
-            var req = ApplyManyRequest.newBuilder();
+            ApplyManyRequest.Builder req = ApplyManyRequest.newBuilder();
             batch.forEach(p -> req.addWrites(p.request));
             sent = many.apply(req.build()).handle((resp, err) -> {
                 if (err != null) {
                     Throwable cause = err instanceof java.util.concurrent.CompletionException && err.getCause() != null
                             ? err.getCause() : err;
-                    if (cause instanceof RequestException re && re.code() == Status.Code.UNIMPLEMENTED) {
+                    if (cause instanceof RequestException && ((RequestException) cause).code() == Status.Code.UNIMPLEMENTED) {
                         // An older server: from now on, one Apply per save.
                         manyUnsupported = true;
                         batch.forEach(p -> single.apply(p.request).whenComplete((r, e) -> complete(p, r, e)));

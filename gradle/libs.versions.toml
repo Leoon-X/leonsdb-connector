@@ -16,15 +16,15 @@ spigot-api-legacy = "1.8.8-R0.1-SNAPSHOT"
 folia-api = "1.19.4-R0.1-SNAPSHOT"
 # The Velocity API the proxy plugin compiles against: the oldest it
 # supports (Java 17 bytecode), so it also loads on proxies on Java 21.
-velocity = "3.4.0"
+velocity = "4.3.1"
 # The importer's sources. MySQL and H2 drivers are not shipped (their
 # licenses are copyleft): the importer downloads them when a plan needs them
 # (Drivers.java pins the versions); the build only uses them in tests.
-sqlite-jdbc = "3.53.2.1"
-mongodb = "5.13.0"
-snakeyaml = "2.6"
-mysql-connector-j = "26.7.0"
-h2 = "2.5.250"
+sqlite-jdbc = "3.54.1.0"
+mongodb = "5.14.0"
+snakeyaml = "2.7"
+mysql-connector-j = "26.10.0"
+h2 = "2.5.252"
 
 [libraries]
 grpc-api = { module = "io.grpc:grpc-api", version.ref = "grpc" }
@@ -47,6 +47,6 @@ mysql-connector-j = { module = "com.mysql:mysql-connector-j", version.ref = "mys
 h2 = { module = "com.h2database:h2", version.ref = "h2" }
 
 [plugins]
-protobuf = { id = "com.google.protobuf", version = "0.10.0" }
+protobuf = { id = "com.google.protobuf", version = "0.10.1" }
 shadow = { id = "com.gradleup.shadow", version = "9.6.1" }
-license-report = { id = "com.github.jk1.dependency-license-report", version = "3.1.4" }
+license-report = { id = "com.github.jk1.dependency-license-report", version = "3.1.5" }

@@ -400,7 +400,17 @@ public final class ClassSchema<T> {
     }
 
     /**
-     * Restricts stored values to the fields this class declares.
+     * The stored values of the fields this class declares, as this server
+     * would write them: what a loaded object is compared with to find what
+     * changed.
+     *
+     * <p>Items (and the lists, maps and inventories that may hold them) are
+     * written differently by different Minecraft versions: a server that
+     * loads an item saved by an older version gets the same item, but would
+     * write other bytes, with its own data version. Taking those bytes as
+     * the starting point means an item the plugin did not change is never
+     * written back, so it stays readable for the older servers of a network.
+     * A value this server cannot read is kept as stored (it is never written).
      *
      * @param values stored fields
      * @return only the declared ones
@@ -410,9 +420,27 @@ public final class ClassSchema<T> {
         for (FieldBinding f : fields) {
             Value v = values.get(f.name());
             if (v != null) {
-                out.put(f.name(), v);
+                out.put(f.name(), asWrittenHere(f, v));
             }
         }
         return out;
+    }
+
+    private static Value asWrittenHere(FieldBinding f, Value stored) {
+        switch (f.type()) {
+            case FIELD_TYPE_ITEM:
+            case FIELD_TYPE_INVENTORY:
+            case FIELD_TYPE_LIST:
+            case FIELD_TYPE_MAP:
+                break;
+            default:
+                return stored; // written the same way everywhere
+        }
+        try {
+            Value here = f.codec().encode(f.codec().decode(stored));
+            return here.equals(stored) ? stored : here;
+        } catch (IllegalArgumentException e) {
+            return stored; // unreadable here: never written, see write()
+        }
     }
 }

@@ -261,4 +261,84 @@ class SchemaTest {
         obj.coins = Double.NaN;
         assertThrows(IllegalArgumentException.class, () -> s.read(obj));
     }
+
+    /** Stands in for a Minecraft item: this "server" writes data version 2 and loads up to 2. */
+    static final class Thing {
+        String name;
+    }
+
+    @GlobalData(namespace = "pvp", collection = "bags")
+    static class Bag {
+        public int count;
+        public Thing thing;
+    }
+
+    private static Value item(int dataVersion, String data) {
+        return Value.newBuilder().setItemValue(com.leonsdb.proto.v1.MinecraftItem.newBuilder()
+                .setDataVersion(dataVersion).setData(com.google.protobuf.ByteString.copyFromUtf8(data))).build();
+    }
+
+    private ClassSchema<Bag> bags() {
+        Codecs c = Codecs.withDefaults();
+        c.register(Thing.class, new TypeCodec<Thing>() {
+            @Override
+            public FieldType fieldType() {
+                return FieldType.FIELD_TYPE_ITEM;
+            }
+
+            @Override
+            public Value encode(Thing t) {
+                return item(2, "v2:" + t.name);
+            }
+
+            @Override
+            public Thing decode(Value v) {
+                if (v.getItemValue().getDataVersion() > 2) {
+                    throw new IllegalArgumentException("newer");
+                }
+                String d = v.getItemValue().getData().toStringUtf8();
+                Thing t = new Thing();
+                t.name = d.substring(d.indexOf(':') + 1);
+                return t;
+            }
+        });
+        return ClassSchema.of(Bag.class, c);
+    }
+
+    @Test
+    void anItemFromAnOlderVersionIsNotWrittenBackUnlessItChanged() {
+        ClassSchema<Bag> s = bags();
+        Map<String, Value> stored = new HashMap<>();
+        stored.put("count", Value.newBuilder().setIntValue(1).build());
+        stored.put("thing", item(1, "v1:sword")); // saved by an older version
+        Bag bag = s.newInstance();
+        Set<String> unreadable = s.write(bag, stored);
+        assertTrue(unreadable.isEmpty());
+        Map<String, Value> base = s.declaredOnly(stored);
+
+        bag.count++;
+        List<Operation> ops = Diff.compute(s, base, s.read(bag), unreadable);
+        assertEquals(1, ops.size(), "only the counter changed: " + ops);
+        assertEquals("count", ops.get(0).getField());
+
+        bag.thing.name = "axe";
+        ops = Diff.compute(s, base, s.read(bag), unreadable);
+        assertEquals(2, ops.size(), "a changed item is written: " + ops);
+    }
+
+    @Test
+    void anItemThisVersionCannotLoadIsKeptAsStored() {
+        ClassSchema<Bag> s = bags();
+        Map<String, Value> stored = new HashMap<>();
+        stored.put("count", Value.newBuilder().setIntValue(1).build());
+        stored.put("thing", item(3, "v3:sword")); // saved by a newer version
+        Bag bag = s.newInstance();
+        Set<String> unreadable = s.write(bag, stored);
+        assertEquals(Set.of("thing"), unreadable);
+        Map<String, Value> base = s.declaredOnly(stored);
+        assertEquals(item(3, "v3:sword"), base.get("thing"));
+        bag.count++;
+        List<Operation> ops = Diff.compute(s, base, s.read(bag), unreadable);
+        assertEquals(1, ops.size(), "the item is never written: " + ops);
+    }
 }
